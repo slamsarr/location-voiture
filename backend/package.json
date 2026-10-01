@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "nodemon --watch src --exec ts-node src/server.ts",
+    "prebuild": "npm install",
     "build": "prisma generate --schema=src/prisma/schema.prisma && tsc && node -e \"const fs=require('fs');const path=require('path');const src=path.join('src','prisma','schema.prisma');const dest=path.join('dist','prisma');fs.mkdirSync(dest,{recursive:true});fs.copyFileSync(src,path.join(dest,path.basename(src)));\"",
     "start": "NODE_ENV=production node server.js",
     "start:windows": "set NODE_ENV=production&& node server.js",

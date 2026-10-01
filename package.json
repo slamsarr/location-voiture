@@ -8,9 +8,12 @@
     "node": ">=18.0.0"
   },
   "scripts": {
+    "preinstall": "npm install --prefix backend || echo 'backend install fallback OK'",
     "install:frontend": "npm install --prefix frontend",
     "install:backend": "npm install --prefix backend",
     "install:all": "npm install && npm install --prefix frontend && npm install --prefix backend",
+    "prebuild": "npm install --prefix backend && npm install --prefix frontend",
+    "build": "npm run prisma:generate && npm run prisma:push && npm run build:backend && npm run build:frontend && npm run db:seed",
     "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
     "dev:windows": "concurrently \"npm.cmd run dev --prefix backend\" \"npm.cmd run dev --prefix frontend\"",
     "build:frontend": "npm run build --prefix frontend",
@@ -18,7 +21,6 @@
     "prisma:push": "cd backend && npx prisma db push --schema=src/prisma/schema.prisma --skip-generate",
     "build:backend": "npm run build --prefix backend",
     "db:seed": "node -e \"require('child_process').execSync('node dist/prisma/seed.js',{cwd:'backend',stdio:'inherit'})\" || npx ts-node --project backend/tsconfig.json backend/src/prisma/seed.ts || echo 'Seed ignore - OK'",
-    "build": "npm run build:frontend && npm run prisma:generate && npm run prisma:push && npm run build:backend && npm run db:seed",
     "build:hostinger": "npm run install:all && npm run build",
     "build:windows": "npm.cmd run build --prefix frontend && npm.cmd run build --prefix backend",
     "start": "node server.js",
