@@ -121,21 +121,25 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-// Démarrage du serveur
-app.listen(PORT, () => {
-  const url = process.env.APP_URL || `http://localhost:${PORT}`;
-  console.log(`=======================================================`);
-  console.log(`🚗 Hertz Digital Rental Platform`);
-  console.log(`🌍 Environnement : ${isProduction ? 'PRODUCTION' : 'DÉVELOPPEMENT'}`);
-  console.log(`📡 URL           : ${url}`);
-  console.log(`🔌 Port          : ${PORT}`);
-  if (isProduction) {
-    console.log(`🎨 Frontend      : Intégré (servi par Node.js)`);
-  } else {
-    console.log(`🎨 Frontend      : http://localhost:5173 (Vite dev)`);
-  }
-  console.log(`⚡ Statut        : En ligne ✅`);
-  console.log(`=======================================================`);
-});
+// Démarrage du serveur UNIQUEMENT si ce fichier est exécuté directement
+// (pas quand il est require() par un server.js parent - sinon double listen EADDRINUSE
+// pendant la phase de détection Hostinger).
+if (require.main === module) {
+  app.listen(PORT, () => {
+    const url = process.env.APP_URL || `http://localhost:${PORT}`;
+    console.log(`=======================================================`);
+    console.log(`🚗 Hertz Digital Rental Platform`);
+    console.log(`🌍 Environnement : ${isProduction ? 'PRODUCTION' : 'DÉVELOPPEMENT'}`);
+    console.log(`📡 URL           : ${url}`);
+    console.log(`🔌 Port          : ${PORT}`);
+    if (isProduction) {
+      console.log(`🎨 Frontend      : Intégré (servi par Node.js)`);
+    } else {
+      console.log(`🎨 Frontend      : http://localhost:5173 (Vite dev)`);
+    }
+    console.log(`⚡ Statut        : En ligne ✅`);
+    console.log(`=======================================================`);
+  });
+}
 
 export default app;
