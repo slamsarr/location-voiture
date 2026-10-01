@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "Plateforme digitale de location de véhicules - Hertz Digital Rental Platform",
+  "main": "server.js",
   "engines": {
     "node": ">=18.0.0"
   },
@@ -13,7 +14,8 @@
     "build": "(cd frontend && npm run build) && (cd backend && npx prisma generate --schema=src/prisma/schema.prisma && npx prisma db push --schema=src/prisma/schema.prisma --skip-generate && npm run build && mkdir -p dist/prisma && cp src/prisma/schema.prisma dist/prisma/schema.prisma && (node dist/prisma/seed.js 2>/dev/null || npx ts-node src/prisma/seed.ts 2>/dev/null || echo 'Seed ignore - OK'))",
     "build:hostinger": "npm run install:all && npm run build",
     "build:windows": "npm.cmd run build --prefix frontend && npm.cmd run build --prefix backend",
-    "start": "cd backend && npm run start",
+    "start": "NODE_ENV=production node server.js",
+    "start:hostinger": "NODE_ENV=production node server.js",
     "start:windows": "cd backend && npm run start:windows",
     "seed": "npm run seed --prefix backend",
     "seed:prod": "cd backend && npx ts-node src/prisma/seed.ts",
@@ -21,6 +23,13 @@
     "test": "npm run test --prefix backend",
     "typecheck": "npm run typecheck --prefix frontend",
     "db:setup:prod": "cd backend && npx prisma generate --schema=src/prisma/schema.prisma && npx prisma db push --schema=src/prisma/schema.prisma"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
