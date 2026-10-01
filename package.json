@@ -1,0 +1,26 @@
+{
+  "name": "hertz-digital-rental-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Plateforme digitale de location de véhicules - Hertz Digital Rental Platform",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "dev:windows": "concurrently \"npm.cmd run dev --prefix backend\" \"npm.cmd run dev --prefix frontend\"",
+    "build": "npm run build --prefix frontend && npm run build --prefix backend",
+    "build:windows": "npm.cmd run build --prefix frontend && npm.cmd run build --prefix backend",
+    "start": "cd backend && npm run start",
+    "start:windows": "cd backend && npm run start:windows",
+    "seed": "npm run seed --prefix backend",
+    "seed:prod": "cd backend && npx ts-node src/prisma/seed.ts",
+    "prisma:push": "npm run prisma:push --prefix backend",
+    "test": "npm run test --prefix backend",
+    "typecheck": "npm run typecheck --prefix frontend",
+    "db:setup:prod": "cd backend && npx prisma generate --schema=src/prisma/schema.prisma && npx prisma db push --schema=src/prisma/schema.prisma"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
