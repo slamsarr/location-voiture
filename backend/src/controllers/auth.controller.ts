@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { hashPassword, verifyPassword, generateToken, AuthRequest } from '../utils/auth';
 
 const prisma = new PrismaClient();
 
@@ -21,20 +22,22 @@ export class AuthController {
         return res.status(401).json({ error: 'Identifiants invalides.' });
       }
 
-      // Pour la démonstration, vérification simple
-      const isValid = (email === 'admin@demo.local' && password === 'Admin123!') ||
-                      (email === 'client@demo.local' && password === 'Client123!') ||
-                      user.passwordHash === password;
-
+      const isValid = await verifyPassword(password, user.passwordHash);
       if (!isValid) {
         return res.status(401).json({ error: 'Mot de passe incorrect.' });
       }
 
-      // Session / token simulé
-      const token = `token_demo_${user.role.toLowerCase()}_${user.id}`;
+      const token = generateToken({
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        name: user.name,
+      });
 
       return res.json({
         token,
+        tokenType: 'Bearer',
+        expiresIn: '7d',
         user: {
           id: user.id,
           email: user.email,
@@ -61,19 +64,29 @@ export class AuthController {
         return res.status(400).json({ error: 'Cet email est déjà utilisé.' });
       }
 
+      const hashedPassword = await hashPassword(password);
+
       const user = await prisma.user.create({
         data: {
           email: email.toLowerCase(),
-          passwordHash: password,
+          passwordHash: hashedPassword,
           name,
           phone,
           role: 'CLIENT',
         }
       });
 
-      const token = `token_demo_client_${user.id}`;
+      const token = generateToken({
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        name: user.name,
+      });
+
       return res.status(201).json({
         token,
+        tokenType: 'Bearer',
+        expiresIn: '7d',
         user: {
           id: user.id,
           email: user.email,
@@ -89,7 +102,7 @@ export class AuthController {
 
   public static async demoLogin(req: Request, res: Response) {
     try {
-      const { role } = req.body; // 'ADMIN' | 'CLIENT'
+      const { role } = req.body;
       const email = role === 'ADMIN' ? 'admin@demo.local' : 'client@demo.local';
 
       const user = await prisma.user.findUnique({
@@ -98,12 +111,20 @@ export class AuthController {
       });
 
       if (!user) {
-        return res.status(404).json({ error: 'Compte démo introuvable.' });
+        return res.status(404).json({ error: 'Compte démo introuvable. Lancez `npm run seed` pour initialiser la base.' });
       }
 
-      const token = `token_demo_${user.role.toLowerCase()}_${user.id}`;
+      const token = generateToken({
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        name: user.name,
+      });
+
       return res.json({
         token,
+        tokenType: 'Bearer',
+        expiresIn: '7d',
         user: {
           id: user.id,
           email: user.email,
@@ -112,6 +133,34 @@ export class AuthController {
           phone: user.phone,
           customer: user.customers
         }
+      });
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  public static async me(req: AuthRequest, res: Response) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Non authentifié.' });
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        include: { customers: true }
+      });
+
+      if (!user) {
+        return res.status(404).json({ error: 'Utilisateur introuvable.' });
+      }
+
+      return res.json({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        phone: user.phone,
+        customer: user.customers
       });
     } catch (error: any) {
       return res.status(500).json({ error: error.message });

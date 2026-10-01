@@ -6,48 +6,69 @@ import { ContractController } from '../controllers/contract.controller';
 import { AdminController } from '../controllers/admin.controller';
 import { AuthController } from '../controllers/auth.controller';
 import { AIController } from '../controllers/ai.controller';
+import {
+  authMiddleware,
+  adminOnlyMiddleware,
+  clientOnlyMiddleware,
+  validateBody,
+} from '../utils/auth';
+import {
+  LoginSchema,
+  RegisterSchema,
+  DemoLoginSchema,
+  QuoteSchema,
+  CreateReservationSchema,
+  UpdateReservationStatusSchema,
+  InitiatePaymentSchema,
+  CreateVehicleSchema,
+  UpdateVehicleSchema,
+  ClientAIQuerySchema,
+  AdminAIQuerySchema,
+  CreateInspectionSchema,
+} from '../utils/validation.schemas';
 
 const router = Router();
 
-// --- Auth Routes ---
-router.post('/auth/login', AuthController.login);
-router.post('/auth/register', AuthController.register);
-router.post('/auth/demo-login', AuthController.demoLogin);
+// --- Auth Routes (publiques) ---
+router.post('/auth/login', validateBody(LoginSchema), AuthController.login);
+router.post('/auth/register', validateBody(RegisterSchema), AuthController.register);
+router.post('/auth/demo-login', validateBody(DemoLoginSchema), AuthController.demoLogin);
+router.get('/auth/me', authMiddleware, AuthController.me);
 
-// --- Vehicles & Categories ---
+// --- Vehicles & Categories (lecture publique, écriture admin) ---
 router.get('/categories', VehicleController.getCategories);
 router.get('/vehicles', VehicleController.getVehicles);
 router.get('/vehicles/:id', VehicleController.getVehicleById);
-router.post('/vehicles', VehicleController.createVehicle);
-router.put('/vehicles/:id', VehicleController.updateVehicle);
-router.delete('/vehicles/:id', VehicleController.deleteVehicle);
+router.post('/vehicles', authMiddleware, adminOnlyMiddleware, validateBody(CreateVehicleSchema), VehicleController.createVehicle);
+router.put('/vehicles/:id', authMiddleware, adminOnlyMiddleware, validateBody(UpdateVehicleSchema), VehicleController.updateVehicle);
+router.delete('/vehicles/:id', authMiddleware, adminOnlyMiddleware, VehicleController.deleteVehicle);
 
 // --- Reservations ---
-router.post('/reservations/quote', ReservationController.calculateQuote);
-router.post('/reservations', ReservationController.createReservation);
-router.get('/reservations/customer/history', ReservationController.getCustomerReservations);
-router.get('/reservations/:id', ReservationController.getReservationById);
+router.post('/reservations/quote', validateBody(QuoteSchema), ReservationController.calculateQuote);
+router.post('/reservations', validateBody(CreateReservationSchema), ReservationController.createReservation);
+router.get('/reservations/customer/history', authMiddleware, clientOnlyMiddleware, ReservationController.getCustomerReservations);
+router.get('/reservations/:id', authMiddleware, ReservationController.getReservationById);
 
 // --- Payments ---
-router.post('/payments', PaymentController.initiatePayment);
-router.get('/payments/:reference', PaymentController.getPaymentByReference);
+router.post('/payments', authMiddleware, validateBody(InitiatePaymentSchema), PaymentController.initiatePayment);
+router.get('/payments/:reference', authMiddleware, PaymentController.getPaymentByReference);
 
 // --- Contracts ---
-router.get('/contracts/:reservationId', ContractController.getContractDetails);
+router.get('/contracts/:reservationId', authMiddleware, ContractController.getContractDetails);
 
-// --- Admin Endpoints ---
-router.get('/dashboard/stats', AdminController.getDashboardStats);
-router.get('/admin/reservations', AdminController.getAllReservations);
-router.put('/admin/reservations/:id/status', AdminController.updateReservationStatus);
-router.get('/admin/customers', AdminController.getAllCustomers);
-router.get('/admin/payments', AdminController.getAllPayments);
-router.get('/admin/contracts', AdminController.getAllContracts);
-router.get('/admin/inspections', AdminController.getInspections);
-router.post('/admin/inspections', AdminController.createInspection);
-router.get('/admin/notifications', AdminController.getNotifications);
+// --- Admin Endpoints (TOUS protégés par JWT + rôle ADMIN) ---
+router.get('/dashboard/stats', authMiddleware, adminOnlyMiddleware, AdminController.getDashboardStats);
+router.get('/admin/reservations', authMiddleware, adminOnlyMiddleware, AdminController.getAllReservations);
+router.put('/admin/reservations/:id/status', authMiddleware, adminOnlyMiddleware, validateBody(UpdateReservationStatusSchema), AdminController.updateReservationStatus);
+router.get('/admin/customers', authMiddleware, adminOnlyMiddleware, AdminController.getAllCustomers);
+router.get('/admin/payments', authMiddleware, adminOnlyMiddleware, AdminController.getAllPayments);
+router.get('/admin/contracts', authMiddleware, adminOnlyMiddleware, AdminController.getAllContracts);
+router.get('/admin/inspections', authMiddleware, adminOnlyMiddleware, AdminController.getInspections);
+router.post('/admin/inspections', authMiddleware, adminOnlyMiddleware, validateBody(CreateInspectionSchema), AdminController.createInspection);
+router.get('/admin/notifications', authMiddleware, adminOnlyMiddleware, AdminController.getNotifications);
 
 // --- AI Assistant ---
-router.post('/ai/client-query', AIController.handleClientQuery);
-router.post('/ai/admin-query', AIController.handleAdminQuery);
+router.post('/ai/client-query', validateBody(ClientAIQuerySchema), AIController.handleClientQuery);
+router.post('/ai/admin-query', authMiddleware, adminOnlyMiddleware, validateBody(AdminAIQuerySchema), AIController.handleAdminQuery);
 
 export default router;

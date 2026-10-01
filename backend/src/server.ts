@@ -5,7 +5,33 @@ import path from 'path';
 import fs from 'fs';
 import apiRouter from './routes/api.routes';
 
-dotenv.config();
+dotenv.config({
+  path: [
+    path.resolve(process.cwd(), '.env'),
+    path.resolve(__dirname, '../../.env'),
+    path.resolve(__dirname, '../.env'),
+  ].filter(p => fs.existsSync(p)),
+});
+
+const resolveDatabaseUrlFromEnv = (callerDirname: string) => {
+  const raw = process.env.DATABASE_URL;
+  if (!raw) return raw;
+  const match = raw.match(/^file:(.+)$/);
+  if (!match) return raw;
+  let dbRelPath = match[1];
+  if (path.isAbsolute(dbRelPath)) return raw;
+  dbRelPath = dbRelPath.replace(/^\.\//, '');
+  const serverDir = callerDirname;
+  const backendRootDir = path.resolve(serverDir, '..');
+  const abs = path.resolve(backendRootDir, dbRelPath);
+  const dir = path.dirname(abs);
+  try {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  } catch (_err) { /* ignore */ }
+  process.env.DATABASE_URL = `file:${abs}`;
+  return process.env.DATABASE_URL;
+};
+resolveDatabaseUrlFromEnv(__dirname);
 
 const app = express();
 const PORT = process.env.PORT || 5000;

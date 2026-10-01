@@ -8,10 +8,17 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "install:all": "npm install && (cd frontend && npm install) && (cd backend && npm install)",
+    "install:frontend": "cd frontend && npm install && cd ..",
+    "install:backend": "cd backend && npm install && cd ..",
+    "install:all": "npm install && npm run install:frontend && npm run install:backend",
     "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
     "dev:windows": "concurrently \"npm.cmd run dev --prefix backend\" \"npm.cmd run dev --prefix frontend\"",
-    "build": "(cd frontend && npm run build) && (cd backend && npx prisma generate --schema=src/prisma/schema.prisma && npx prisma db push --schema=src/prisma/schema.prisma --skip-generate && npm run build && mkdir -p dist/prisma && cp src/prisma/schema.prisma dist/prisma/schema.prisma && (node dist/prisma/seed.js 2>/dev/null || npx ts-node src/prisma/seed.ts 2>/dev/null || echo 'Seed ignore - OK'))",
+    "build:frontend": "cd frontend && npm run build && cd ..",
+    "prisma:generate": "cd backend && npx prisma generate --schema=src/prisma/schema.prisma && cd ..",
+    "prisma:push": "cd backend && npx prisma db push --schema=src/prisma/schema.prisma --skip-generate && cd ..",
+    "build:backend": "cd backend && npm run build && node -e \"const fs=require('fs');const path=require('path');const src=path.join('src','prisma','schema.prisma');const dest=path.join('dist','prisma');fs.mkdirSync(dest,{recursive:true});fs.copyFileSync(src,path.join(dest,path.basename(src)));\" && cd ..",
+    "db:seed": "cd backend && node dist/prisma/seed.js || npx ts-node src/prisma/seed.ts || echo 'Seed ignore - OK' && cd ..",
+    "build": "npm run build:frontend && npm run prisma:generate && npm run prisma:push && npm run build:backend && npm run db:seed",
     "build:hostinger": "npm run install:all && npm run build",
     "build:windows": "npm.cmd run build --prefix frontend && npm.cmd run build --prefix backend",
     "start": "NODE_ENV=production node server.js",
@@ -19,7 +26,7 @@
     "start:windows": "cd backend && npm run start:windows",
     "seed": "npm run seed --prefix backend",
     "seed:prod": "cd backend && npx ts-node src/prisma/seed.ts",
-    "prisma:push": "npm run prisma:push --prefix backend",
+    "prisma:push-manual": "npm run prisma:push --prefix backend",
     "test": "npm run test --prefix backend",
     "typecheck": "npm run typecheck --prefix frontend",
     "db:setup:prod": "cd backend && npx prisma generate --schema=src/prisma/schema.prisma && npx prisma db push --schema=src/prisma/schema.prisma"

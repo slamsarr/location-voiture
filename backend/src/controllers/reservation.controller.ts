@@ -4,6 +4,7 @@ import { PricingService } from '../services/pricing.service';
 import { AvailabilityService } from '../services/availability.service';
 import { NotificationService } from '../services/notification.service';
 import { CreateReservationDto } from '../types';
+import { AuthRequest } from '../utils/auth';
 
 const prisma = new PrismaClient();
 
@@ -179,7 +180,7 @@ export class ReservationController {
   /**
    * Détail d'une réservation par ID ou Référence
    */
-  public static async getReservationById(req: Request, res: Response) {
+  public static async getReservationById(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
       const reservation = await prisma.reservation.findFirst({
@@ -202,24 +203,47 @@ export class ReservationController {
         return res.status(404).json({ error: 'Réservation introuvable.' });
       }
 
+      if (req.user && req.user.role !== 'ADMIN') {
+        const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+        if (!user || user.email !== reservation.customer.email) {
+          return res.status(403).json({ error: 'Accès refusé. Cette réservation ne vous appartient pas.' });
+        }
+      }
+
       return res.json(reservation);
     } catch (error: any) {
       return res.status(500).json({ error: error.message });
     }
   }
 
-  /**
-   * Réservations d'un client par email
-   */
-  public static async getCustomerReservations(req: Request, res: Response) {
+  public static async getCustomerReservations(req: AuthRequest, res: Response) {
     try {
-      const { email } = req.query;
-      if (!email) {
-        return res.status(400).json({ error: 'Email requis' });
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentification requise.' });
+      }
+
+      let customerEmail: string | null = null;
+
+      if (req.user.role === 'ADMIN') {
+        const emailParam = req.query.email as string | undefined;
+        if (emailParam) {
+          customerEmail = emailParam.toLowerCase();
+        }
+      }
+
+      if (!customerEmail) {
+        const user = await prisma.user.findUnique({
+          where: { id: req.user.id },
+          select: { email: true }
+        });
+        if (!user) {
+          return res.status(404).json({ error: 'Utilisateur introuvable.' });
+        }
+        customerEmail = user.email;
       }
 
       const customer = await prisma.customer.findFirst({
-        where: { email: String(email).toLowerCase() }
+        where: { email: customerEmail.toLowerCase() }
       });
 
       if (!customer) {
