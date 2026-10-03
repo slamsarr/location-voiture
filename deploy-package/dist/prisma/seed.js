@@ -1,10 +1,39 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
+const path_1 = __importDefault(require("path"));
+const fs_1 = __importDefault(require("fs"));
+const dotenv_1 = __importDefault(require("dotenv"));
 const client_1 = require("@prisma/client");
+const bcryptjs_1 = __importDefault(require("bcryptjs"));
+dotenv_1.default.config({
+    path: [
+        path_1.default.resolve(process.cwd(), '.env'),
+        path_1.default.resolve(__dirname, '../../.env'),
+        path_1.default.resolve(__dirname, '../../../.env'),
+    ].filter(p => fs_1.default.existsSync(p)),
+});
+const raw = process.env.DATABASE_URL || '';
+const match = raw.match(/^file:(.+)$/);
+if (match && !path_1.default.isAbsolute(match[1])) {
+    let dbRelPath = match[1].replace(/^\.\//, '');
+    const seedDir = __dirname;
+    const backendRootDir = path_1.default.resolve(seedDir, '..', '..');
+    const abs = path_1.default.resolve(backendRootDir, dbRelPath);
+    const dir = path_1.default.dirname(abs);
+    try {
+        if (!fs_1.default.existsSync(dir))
+            fs_1.default.mkdirSync(dir, { recursive: true });
+    }
+    catch (_err) { /* ignore */ }
+    process.env.DATABASE_URL = `file:${abs}`;
+}
 const prisma = new client_1.PrismaClient();
+const SALT_ROUNDS = 12;
 async function main() {
     console.log('🌱 Démarrage du seed Hertz Digital Rental Platform...');
-    // Nettoyage préalable
     await prisma.vehicleInspection.deleteMany();
     await prisma.contract.deleteMany();
     await prisma.payment.deleteMany();
@@ -15,12 +44,14 @@ async function main() {
     await prisma.vehicleCategory.deleteMany();
     await prisma.customer.deleteMany();
     await prisma.user.deleteMany();
-    // 1. Création des utilisateurs de démonstration
+    console.log('🔐 Hachage sécurisé des mots de passe (bcrypt)...');
+    const adminHash = await bcryptjs_1.default.hash('Admin123!', SALT_ROUNDS);
+    const clientHash = await bcryptjs_1.default.hash('Client123!', SALT_ROUNDS);
     console.log('👤 Création des comptes utilisateurs de démonstration...');
     const adminUser = await prisma.user.create({
         data: {
             email: 'admin@demo.local',
-            passwordHash: 'Admin123!',
+            passwordHash: adminHash,
             name: 'Directeur d’Agence (Admin)',
             phone: '+221 77 123 45 67',
             role: 'ADMIN',
@@ -29,7 +60,7 @@ async function main() {
     const clientUser = await prisma.user.create({
         data: {
             email: 'client@demo.local',
-            passwordHash: 'Client123!',
+            passwordHash: clientHash,
             name: 'Amadou Diallo',
             phone: '+221 78 987 65 43',
             role: 'CLIENT',

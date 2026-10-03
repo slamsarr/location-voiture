@@ -12,7 +12,24 @@ export interface AuthRequest extends Request {
   };
 }
 
-const JWT_SECRET = (process.env.JWT_SECRET as string) || 'hertz-dev-secret-change-me-in-production-' + Math.random().toString(36);
+const DEFAULT_DEV_SECRET = 'hertz-dev-secret-change-me-in-production-do-not-use-this-0123456789abcdef';
+const rawSecret = (process.env.JWT_SECRET as string) || '';
+const isProduction = process.env.NODE_ENV === 'production';
+
+if (!rawSecret && isProduction) {
+  console.error('====================================================================');
+  console.error('❌ [ERREUR CRITIQUE PRODUCTION] JWT_SECRET est ABSENT des variables');
+  console.error('   d\'environnement. Les utilisateurs seront déconnectés à chaque');
+  console.error('   redémarrage ! Ajoutez JWT_SECRET dans votre fichier .env .');
+  console.error('====================================================================');
+}
+
+if (!rawSecret) {
+  console.warn('⚠️  [AVERTISSEMENT] Aucun JWT_SECRET défini — utilisation du secret DEV par défaut.');
+  console.warn('    Pour la production, définissez JWT_SECRET avec une chaîne aléatoire de 64+ caractères.');
+}
+
+const JWT_SECRET = rawSecret || DEFAULT_DEV_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 const SALT_ROUNDS = 12;

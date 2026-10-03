@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "name": "Hertz Digital Rental Platform",
+  "framework": "Node.js Express + Vite",
+  "description": "Location de véhicules - Full stack TypeScript/Node.js + React SPA",
+  "buildCommand": "npm run build:hostinger",
+  "startCommand": "npm run start:hostinger",
+  "outputDirectory": ".",
+  "rootDir": ".",
+  "entryPoint": "server.js",
+  "nodeVersion": "20.x",
+  "autoDeploy": true,
+  "branch": "main",
+  "environmentVariables": [
+    {
+      "name": "NODE_ENV",
+      "value": "production",
+      "description": "Mode production (active CORS restrictif + serve frontend statique)"
+    },
+    {
+      "name": "PORT",
+      "value": "5000",
+      "description": "Port d'écoute du serveur Node.js (Hostinger map le 80/443 automatiquement)"
+    },
+    {
+      "name": "APP_URL",
+      "value": "https://A-REMPLACER-par-votre-domaine.tdl",
+      "description": "URL publique complète (https://) utilisée dans les liens contrats/emails",
+      "required": true
+    },
+    {
+      "name": "ALLOWED_ORIGINS",
+      "value": "https://A-REMPLACER-par-votre-domaine.tdl,https://www.A-REMPLACER-par-votre-domaine.tdl",
+      "description": "Origines autorisées par CORS (séparées par virgule). * = toutes origines"
+    },
+    {
+      "name": "JWT_SECRET",
+      "value": "A-REMPLACER-PAR-SECRET-ALEATOIRE-64-HEX-minimum",
+      "description": "⚠️ OBLIGATOIRE : Générer avec : node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
+      "secret": true,
+      "required": true
+    },
+    {
+      "name": "JWT_EXPIRES_IN",
+      "value": "7d",
+      "description": "Durée validité tokens JWT : 7d, 24h, 30d, etc."
+    },
+    {
+      "name": "DATABASE_URL",
+      "value": "file:./backend/dist/prisma/prod.db",
+      "description": "⚠️ OBLIGATOIRE : SQLite par défaut. Ex PostgreSQL : postgresql://USER:MDP@HOST:5432/BASE?schema=public"
+    }
+  ],
+  "postBuildCommands": [
+    "node scripts/hostinger-postdeploy.js || echo 'postdeploy step completed (seed / bdd)'"
+  ],
+  "healthCheckPath": "/api/health"
+}

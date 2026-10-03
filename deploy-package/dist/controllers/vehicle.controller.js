@@ -1,13 +1,20 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VehicleController = void 0;
-const client_1 = require("@prisma/client");
+const crypto_1 = require("crypto");
+const prisma_1 = require("../utils/prisma");
 const availability_service_1 = require("../services/availability.service");
-const prisma = new client_1.PrismaClient();
+const isProduction = process.env.NODE_ENV === 'production';
+function serverError(res, error) {
+    console.error('[VehicleController]', error);
+    return res.status(500).json({
+        error: isProduction ? 'Une erreur interne est survenue.' : error.message,
+    });
+}
 class VehicleController {
     static async getCategories(req, res) {
         try {
-            const categories = await prisma.vehicleCategory.findMany({
+            const categories = await prisma_1.prisma.vehicleCategory.findMany({
                 include: {
                     _count: { select: { vehicles: true } }
                 }
@@ -15,7 +22,7 @@ class VehicleController {
             return res.json(categories);
         }
         catch (error) {
-            return res.status(500).json({ error: error.message });
+            return serverError(res, error);
         }
     }
     static async getVehicles(req, res) {
@@ -26,7 +33,7 @@ class VehicleController {
                 where.categoryId = String(categoryId);
             }
             else if (category && category !== 'all') {
-                const cat = await prisma.vehicleCategory.findFirst({
+                const cat = await prisma_1.prisma.vehicleCategory.findFirst({
                     where: {
                         OR: [
                             { slug: String(category).toLowerCase() },
@@ -62,7 +69,7 @@ class VehicleController {
             else if (sort === 'popularity') {
                 orderBy = { year: 'desc' };
             }
-            const vehicles = await prisma.vehicle.findMany({
+            const vehicles = await prisma_1.prisma.vehicle.findMany({
                 where,
                 include: { category: true },
                 orderBy,
@@ -73,13 +80,13 @@ class VehicleController {
             });
         }
         catch (error) {
-            return res.status(500).json({ error: error.message });
+            return serverError(res, error);
         }
     }
     static async getVehicleById(req, res) {
         try {
             const { id } = req.params;
-            const vehicle = await prisma.vehicle.findUnique({
+            const vehicle = await prisma_1.prisma.vehicle.findUnique({
                 where: { id },
                 include: { category: true }
             });
@@ -89,13 +96,13 @@ class VehicleController {
             return res.json(vehicle);
         }
         catch (error) {
-            return res.status(500).json({ error: error.message });
+            return serverError(res, error);
         }
     }
     static async createVehicle(req, res) {
         try {
             const data = req.body;
-            const vehicle = await prisma.vehicle.create({
+            const vehicle = await prisma_1.prisma.vehicle.create({
                 data: {
                     brand: data.brand,
                     model: data.model,
@@ -113,20 +120,20 @@ class VehicleController {
                     imageUrl: data.imageUrl || 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&q=80&w=800',
                     description: data.description,
                     features: typeof data.features === 'string' ? data.features : JSON.stringify(data.features || []),
-                    plateNumber: data.plateNumber || `DK-${Math.floor(1000 + Math.random() * 9000)}-HZ`,
+                    plateNumber: data.plateNumber || `DK-${(0, crypto_1.randomBytes)(2).toString('hex').toUpperCase()}-HZ`,
                 }
             });
             return res.status(201).json(vehicle);
         }
         catch (error) {
-            return res.status(500).json({ error: error.message });
+            return serverError(res, error);
         }
     }
     static async updateVehicle(req, res) {
         try {
             const { id } = req.params;
             const data = req.body;
-            const vehicle = await prisma.vehicle.update({
+            const vehicle = await prisma_1.prisma.vehicle.update({
                 where: { id },
                 data: {
                     brand: data.brand,
@@ -148,19 +155,19 @@ class VehicleController {
             return res.json(vehicle);
         }
         catch (error) {
-            return res.status(500).json({ error: error.message });
+            return serverError(res, error);
         }
     }
     static async deleteVehicle(req, res) {
         try {
             const { id } = req.params;
-            await prisma.vehicle.delete({
+            await prisma_1.prisma.vehicle.delete({
                 where: { id }
             });
             return res.json({ message: 'Véhicule supprimé avec succès' });
         }
         catch (error) {
-            return res.status(500).json({ error: error.message });
+            return serverError(res, error);
         }
     }
 }

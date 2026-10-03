@@ -1,6 +1,5 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { randomBytes } from 'crypto';
+import { prisma } from '../utils/prisma';
 
 export class ContractService {
   /**
@@ -28,7 +27,8 @@ export class ContractService {
       return reservation.contract;
     }
 
-    const reference = `CTR-2026-${Math.floor(100000 + Math.random() * 900000)}`;
+    const year = new Date().getFullYear();
+    const reference = `CTR-${year}-${randomBytes(4).toString('hex').toUpperCase()}`;
     const now = new Date();
 
     const contract = await prisma.contract.create({

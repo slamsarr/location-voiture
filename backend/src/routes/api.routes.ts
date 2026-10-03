@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import { VehicleController } from '../controllers/vehicle.controller';
 import { ReservationController } from '../controllers/reservation.controller';
 import { PaymentController } from '../controllers/payment.controller';
@@ -29,10 +30,30 @@ import {
 
 const router = Router();
 
-// --- Auth Routes (publiques) ---
-router.post('/auth/login', validateBody(LoginSchema), AuthController.login);
-router.post('/auth/register', validateBody(RegisterSchema), AuthController.register);
-router.post('/auth/demo-login', validateBody(DemoLoginSchema), AuthController.demoLogin);
+// ─── Rate Limiters ────────────────────────────────────────────────────────────
+
+/** 10 tentatives par IP par 15 minutes sur les routes d'authentification */
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de tentatives. Réessayez dans 15 minutes.' },
+});
+
+/** 30 créations de réservation par IP par heure */
+const reservationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 heure
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de demandes de réservation. Réessayez plus tard.' },
+});
+
+// --- Auth Routes (publiques, protégées par rate limiter) ---
+router.post('/auth/login', authLimiter, validateBody(LoginSchema), AuthController.login);
+router.post('/auth/register', authLimiter, validateBody(RegisterSchema), AuthController.register);
+router.post('/auth/demo-login', authLimiter, validateBody(DemoLoginSchema), AuthController.demoLogin);
 router.get('/auth/me', authMiddleware, AuthController.me);
 
 // --- Vehicles & Categories (lecture publique, écriture admin) ---
@@ -45,7 +66,8 @@ router.delete('/vehicles/:id', authMiddleware, adminOnlyMiddleware, VehicleContr
 
 // --- Reservations ---
 router.post('/reservations/quote', validateBody(QuoteSchema), ReservationController.calculateQuote);
-router.post('/reservations', validateBody(CreateReservationSchema), ReservationController.createReservation);
+// authMiddleware requis + rate limiting pour créer une réservation
+router.post('/reservations', authMiddleware, reservationLimiter, validateBody(CreateReservationSchema), ReservationController.createReservation);
 router.get('/reservations/customer/history', authMiddleware, clientOnlyMiddleware, ReservationController.getCustomerReservations);
 router.get('/reservations/:id', authMiddleware, ReservationController.getReservationById);
 

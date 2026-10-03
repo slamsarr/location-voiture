@@ -1,12 +1,20 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { randomBytes } from 'crypto';
+import { prisma } from '../utils/prisma';
 import { PricingService } from '../services/pricing.service';
 import { AvailabilityService } from '../services/availability.service';
 import { NotificationService } from '../services/notification.service';
 import { CreateReservationDto } from '../types';
 import { AuthRequest } from '../utils/auth';
 
-const prisma = new PrismaClient();
+const isProduction = process.env.NODE_ENV === 'production';
+
+function serverError(res: Response, error: any) {
+  console.error('[ReservationController]', error);
+  return res.status(500).json({
+    error: isProduction ? 'Une erreur interne est survenue.' : error.message,
+  });
+}
 
 export class ReservationController {
   /**
@@ -52,7 +60,7 @@ export class ReservationController {
         }
       });
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 
@@ -121,8 +129,9 @@ export class ReservationController {
         });
       }
 
-      // 4. Générer la référence unique HZ-2026-XXXXXX
-      const reference = `HZ-2026-${Math.floor(100000 + Math.random() * 900000)}`;
+      // 4. Générer la référence unique HZ-YYYY-XXXXXXXX (cryptographiquement sûr)
+      const year = new Date().getFullYear();
+      const reference = `HZ-${year}-${randomBytes(4).toString('hex').toUpperCase()}`;
 
       // 5. Créer la réservation
       const reservation = await prisma.reservation.create({
@@ -173,7 +182,7 @@ export class ReservationController {
       return res.status(201).json(reservation);
     } catch (error: any) {
       console.error('Reservation creation error:', error);
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 
@@ -212,7 +221,7 @@ export class ReservationController {
 
       return res.json(reservation);
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 
@@ -262,7 +271,7 @@ export class ReservationController {
 
       return res.json(reservations);
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 }

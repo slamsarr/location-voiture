@@ -1,8 +1,15 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../utils/prisma';
 import { hashPassword, verifyPassword, generateToken, AuthRequest } from '../utils/auth';
 
-const prisma = new PrismaClient();
+const isProduction = process.env.NODE_ENV === 'production';
+
+function serverError(res: Response, error: any) {
+  console.error('[AuthController]', error);
+  return res.status(500).json({
+    error: isProduction ? 'Une erreur interne est survenue.' : error.message,
+  });
+}
 
 export class AuthController {
   public static async login(req: Request, res: Response) {
@@ -48,7 +55,7 @@ export class AuthController {
         }
       });
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 
@@ -96,7 +103,7 @@ export class AuthController {
         }
       });
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 
@@ -135,7 +142,7 @@ export class AuthController {
         }
       });
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 
@@ -163,7 +170,7 @@ export class AuthController {
         customer: user.customers
       });
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 }

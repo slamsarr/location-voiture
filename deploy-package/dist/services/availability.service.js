@@ -1,8 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AvailabilityService = void 0;
-const client_1 = require("@prisma/client");
-const prisma = new client_1.PrismaClient();
+const prisma_1 = require("../utils/prisma");
 class AvailabilityService {
     /**
      * Vérifie si un véhicule donné est libre entre startDate et endDate (YYYY-MM-DD)
@@ -11,7 +10,7 @@ class AvailabilityService {
      */
     static async isVehicleAvailable(vehicleId, startDateStr, endDateStr, excludeReservationId) {
         // 1. Vérifier si le véhicule existe et n'est pas en maintenance
-        const vehicle = await prisma.vehicle.findUnique({
+        const vehicle = await prisma_1.prisma.vehicle.findUnique({
             where: { id: vehicleId }
         });
         if (!vehicle || vehicle.status === 'MAINTENANCE') {
@@ -19,7 +18,7 @@ class AvailabilityService {
         }
         // 2. Chercher les réservations qui se chevauchent
         // Deux plages [A, B] et [C, D] se chevauchent si A <= D et B >= C
-        const conflictingReservations = await prisma.reservation.findMany({
+        const conflictingReservations = await prisma_1.prisma.reservation.findMany({
             where: {
                 vehicleId,
                 id: excludeReservationId ? { not: excludeReservationId } : undefined,
@@ -36,7 +35,7 @@ class AvailabilityService {
      * Retourne la liste des IDs de véhicules disponibles sur une période donnée
      */
     static async getAvailableVehicleIds(startDateStr, endDateStr) {
-        const allVehicles = await prisma.vehicle.findMany({
+        const allVehicles = await prisma_1.prisma.vehicle.findMany({
             where: {
                 status: { not: 'MAINTENANCE' }
             },

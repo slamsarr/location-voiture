@@ -1,6 +1,15 @@
 import { Request, Response } from 'express';
 import { AIService } from '../services/ai.service';
 
+const isProduction = process.env.NODE_ENV === 'production';
+
+function serverError(res: Response, error: any) {
+  console.error('[AIController]', error);
+  return res.status(500).json({
+    error: isProduction ? 'Une erreur interne est survenue.' : error.message,
+  });
+}
+
 export class AIController {
   public static async handleClientQuery(req: Request, res: Response) {
     try {
@@ -12,7 +21,7 @@ export class AIController {
       const result = await AIService.handleClientQuery(query);
       return res.json(result);
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 
@@ -26,7 +35,7 @@ export class AIController {
       const result = await AIService.handleAdminQuery(query);
       return res.json(result);
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 }

@@ -1,11 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PaymentController = void 0;
-const client_1 = require("@prisma/client");
+const crypto_1 = require("crypto");
+const prisma_1 = require("../utils/prisma");
 const payment_service_1 = require("../services/payment/payment.service");
 const contract_service_1 = require("../services/contract.service");
 const notification_service_1 = require("../services/notification.service");
-const prisma = new client_1.PrismaClient();
+const isProduction = process.env.NODE_ENV === 'production';
+function serverError(res, error) {
+    console.error('[PaymentController]', error);
+    return res.status(500).json({
+        error: isProduction ? 'Une erreur interne est survenue.' : error.message,
+    });
+}
 class PaymentController {
     static async initiatePayment(req, res) {
         try {
@@ -13,14 +20,15 @@ class PaymentController {
             if (!dto.reservationId || !dto.method) {
                 return res.status(400).json({ error: 'reservationId et method sont obligatoires.' });
             }
-            const reservation = await prisma.reservation.findUnique({
+            const reservation = await prisma_1.prisma.reservation.findUnique({
                 where: { id: dto.reservationId },
                 include: { customer: true, vehicle: true }
             });
             if (!reservation) {
                 return res.status(404).json({ error: 'Réservation introuvable.' });
             }
-            const paymentReference = `PAY-2026-${Math.floor(100000 + Math.random() * 900000)}`;
+            const year = new Date().getFullYear();
+            const paymentReference = `PAY-${year}-${(0, crypto_1.randomBytes)(4).toString('hex').toUpperCase()}`;
             // Exécution via l'orchestrateur PaymentService
             const paymentResult = await payment_service_1.PaymentService.processPayment({
                 reservationId: reservation.id,
@@ -34,7 +42,7 @@ class PaymentController {
                 simulateStatus: dto.simulateStatus || 'SUCCESS'
             });
             // Sauvegarde de l'enregistrement de paiement
-            const payment = await prisma.payment.create({
+            const payment = await prisma_1.prisma.payment.create({
                 data: {
                     reference: paymentReference,
                     reservationId: reservation.id,
@@ -51,7 +59,7 @@ class PaymentController {
             // Si le paiement a réussi :
             if (paymentResult.status === 'SUCCESS') {
                 // 1. Mettre à jour le statut de la réservation
-                await prisma.reservation.update({
+                await prisma_1.prisma.reservation.update({
                     where: { id: reservation.id },
                     data: { status: 'PAID' }
                 });
@@ -68,13 +76,13 @@ class PaymentController {
         }
         catch (error) {
             console.error('Payment controller error:', error);
-            return res.status(500).json({ error: error.message });
+            return serverError(res, error);
         }
     }
     static async getPaymentByReference(req, res) {
         try {
             const { reference } = req.params;
-            const payment = await prisma.payment.findUnique({
+            const payment = await prisma_1.prisma.payment.findUnique({
                 where: { reference },
                 include: {
                     reservation: {
@@ -88,7 +96,7 @@ class PaymentController {
             return res.json(payment);
         }
         catch (error) {
-            return res.status(500).json({ error: error.message });
+            return serverError(res, error);
         }
     }
 }

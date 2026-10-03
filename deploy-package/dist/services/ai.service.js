@@ -1,8 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AIService = void 0;
-const client_1 = require("@prisma/client");
-const prisma = new client_1.PrismaClient();
+const prisma_1 = require("../utils/prisma");
 class AIService {
     /**
      * Analyse en langage naturel pour le client (recherche de véhicule)
@@ -39,7 +38,7 @@ class AIService {
             criteria.category = 'Premium';
         }
         // Récupérer les véhicules
-        const vehicles = await prisma.vehicle.findMany({
+        const vehicles = await prisma_1.prisma.vehicle.findMany({
             where: {
                 status: { in: ['AVAILABLE', 'RESERVED'] }
             },
@@ -91,7 +90,7 @@ class AIService {
         const q = query.toLowerCase();
         // 1. Chiffre d'affaires
         if (q.includes('chiffre d\'affaires') || q.includes('ca') || q.includes('revenu')) {
-            const payments = await prisma.payment.findMany({
+            const payments = await prisma_1.prisma.payment.findMany({
                 where: { status: 'SUCCESS' }
             });
             const totalCA = payments.reduce((sum, p) => sum + p.amount, 0);
@@ -104,7 +103,7 @@ class AIService {
         }
         // 2. Réservations impayées ou en attente
         if (q.includes('impayé') || q.includes('attente') || q.includes('pending')) {
-            const pendingReservations = await prisma.reservation.findMany({
+            const pendingReservations = await prisma_1.prisma.reservation.findMany({
                 where: { status: { in: ['PENDING', 'CONFIRMED'] } },
                 include: { customer: true, vehicle: true }
             });
@@ -122,11 +121,11 @@ class AIService {
         }
         // 3. Véhicules disponibles
         if (q.includes('disponible') || q.includes('flotte') || q.includes('véhicules')) {
-            const availableVehicles = await prisma.vehicle.findMany({
+            const availableVehicles = await prisma_1.prisma.vehicle.findMany({
                 where: { status: 'AVAILABLE' },
                 include: { category: true }
             });
-            const totalVehicles = await prisma.vehicle.count();
+            const totalVehicles = await prisma_1.prisma.vehicle.count();
             return {
                 question: query,
                 answer: `Actuellement, **${availableVehicles.length} véhicules sur ${totalVehicles}** sont immédiatement disponibles à la location (${Math.round((availableVehicles.length / totalVehicles) * 100)}% de disponibilité de flotte).`,

@@ -1,0 +1,115 @@
+name: Hertz Digital — Build & Deploy Check
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-and-verify:
+    name: Build Backend + Frontend
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [ 20.x ]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+
+      - name: Prisma Generate
+        working-directory: backend
+        env:
+          DATABASE_URL: "file:./dev.db"
+        run: npx prisma generate --schema=src/prisma/schema.prisma
+
+      - name: Build Backend (TypeScript → JS)
+        working-directory: backend
+        run: npx tsc
+
+      - name: Build Frontend (Vite)
+        working-directory: frontend
+        run: npm run build
+
+      - name: Copy frontend → backend/dist/public
+        run: node scripts/copy-frontend.js
+
+      - name: Vérifier build artifacts
+        run: |
+          echo "--- Vérifications fichiers build ---"
+          test -f backend/dist/server.js && echo "✅ backend/dist/server.js OK"
+          test -f backend/dist/prisma/schema.prisma && echo "✅ backend/dist/prisma/schema.prisma OK"
+          test -f backend/dist/public/index.html && echo "✅ backend/dist/public/index.html OK"
+          test -d backend/dist/public/assets && echo "✅ backend/dist/public/assets/ OK"
+          echo "--- Liste backend/dist ---"
+          ls -la backend/dist/
+
+  deploy-package-artifact:
+    name: Créer package déploiement Hostinger
+    needs: build-and-verify
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Install & Build complet
+        env:
+          DATABASE_URL: "file:./dev.db"
+        run: |
+          npm install --prefix backend
+          npm install --prefix frontend
+          npm install
+          cd backend && npx prisma generate --schema=src/prisma/schema.prisma && cd ..
+          npm run build:frontend
+          npm run build:backend
+          node scripts/copy-frontend.js
+
+      - name: Préparer package Hostinger
+        run: |
+          mkdir -p deploy-artifact
+          cp -R backend/dist deploy-artifact/
+          cp backend/package.json deploy-artifact/
+          cp backend/package-lock.json deploy-artifact/ 2>/dev/null || true
+          cp backend/src/prisma/schema.prisma deploy-artifact/dist/prisma/
+          cp backend/ecosystem.config.js deploy-artifact/ 2>/dev/null || true
+          cp .env.example deploy-artifact/.env.example
+          echo '-----'
+          ls -la deploy-artifact/
+          echo '-----'
+          ls -la deploy-artifact/dist/ | head -20
+
+      - name: Upload artifact déploiement
+        uses: actions/upload-artifact@v4
+        with:
+          name: hertz-hostinger-deploy
+          path: deploy-artifact/
+          retention-days: 30

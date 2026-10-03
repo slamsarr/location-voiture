@@ -1,8 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdminController = void 0;
-const client_1 = require("@prisma/client");
-const prisma = new client_1.PrismaClient();
+const prisma_1 = require("../utils/prisma");
+const isProduction = process.env.NODE_ENV === 'production';
+function serverError(res, error) {
+    console.error('[AdminController]', error);
+    return res.status(500).json({
+        error: isProduction ? 'Une erreur interne est survenue.' : error.message,
+    });
+}
 class AdminController {
     /**
      * Tableau de bord : KPIs et séries temporelles pour Recharts
@@ -10,18 +16,18 @@ class AdminController {
     static async getDashboardStats(req, res) {
         try {
             const todayStr = '2026-03-15'; // Date de référence démonstration 2026
-            const totalVehicles = await prisma.vehicle.count();
-            const availableVehicles = await prisma.vehicle.count({ where: { status: 'AVAILABLE' } });
-            const rentedVehicles = await prisma.vehicle.count({ where: { status: 'RENTED' } });
-            const maintenanceVehicles = await prisma.vehicle.count({ where: { status: 'MAINTENANCE' } });
-            const totalReservations = await prisma.reservation.count();
+            const totalVehicles = await prisma_1.prisma.vehicle.count();
+            const availableVehicles = await prisma_1.prisma.vehicle.count({ where: { status: 'AVAILABLE' } });
+            const rentedVehicles = await prisma_1.prisma.vehicle.count({ where: { status: 'RENTED' } });
+            const maintenanceVehicles = await prisma_1.prisma.vehicle.count({ where: { status: 'MAINTENANCE' } });
+            const totalReservations = await prisma_1.prisma.reservation.count();
             const todayReservations = 24; // KPI réaliste démonstration
             const monthReservations = 186; // KPI réaliste démonstration
-            const successfulPayments = await prisma.payment.findMany({
+            const successfulPayments = await prisma_1.prisma.payment.findMany({
                 where: { status: 'SUCCESS' }
             });
             const totalRevenue = successfulPayments.reduce((sum, p) => sum + p.amount, 0);
-            const pendingPaymentsCount = await prisma.payment.count({
+            const pendingPaymentsCount = await prisma_1.prisma.payment.count({
                 where: { status: 'PENDING' }
             });
             // Données pour les graphiques Recharts
@@ -48,7 +54,7 @@ class AdminController {
                 { name: 'Carte Bancaire', count: 14, percentage: 14, color: '#3b82f6' },
                 { name: 'InTouch', count: 6, percentage: 6, color: '#10b981' },
             ];
-            const topVehicles = await prisma.vehicle.findMany({
+            const topVehicles = await prisma_1.prisma.vehicle.findMany({
                 take: 5,
                 include: {
                     category: true,
@@ -86,7 +92,7 @@ class AdminController {
             });
         }
         catch (error) {
-            return res.status(500).json({ error: error.message });
+            return serverError(res, error);
         }
     }
     static async getAllReservations(req, res) {
@@ -105,7 +111,7 @@ class AdminController {
                     { vehicle: { model: { contains: String(search) } } },
                 ];
             }
-            const reservations = await prisma.reservation.findMany({
+            const reservations = await prisma_1.prisma.reservation.findMany({
                 where,
                 include: {
                     customer: true,
@@ -118,26 +124,26 @@ class AdminController {
             return res.json(reservations);
         }
         catch (error) {
-            return res.status(500).json({ error: error.message });
+            return serverError(res, error);
         }
     }
     static async updateReservationStatus(req, res) {
         try {
             const { id } = req.params;
             const { status } = req.body;
-            const updated = await prisma.reservation.update({
+            const updated = await prisma_1.prisma.reservation.update({
                 where: { id },
                 data: { status }
             });
             return res.json(updated);
         }
         catch (error) {
-            return res.status(500).json({ error: error.message });
+            return serverError(res, error);
         }
     }
     static async getAllCustomers(req, res) {
         try {
-            const customers = await prisma.customer.findMany({
+            const customers = await prisma_1.prisma.customer.findMany({
                 include: {
                     reservations: {
                         select: {
@@ -170,7 +176,7 @@ class AdminController {
             return res.json(formatted);
         }
         catch (error) {
-            return res.status(500).json({ error: error.message });
+            return serverError(res, error);
         }
     }
     static async getAllPayments(req, res) {
@@ -180,7 +186,7 @@ class AdminController {
             if (status && status !== 'all') {
                 where.status = String(status).toUpperCase();
             }
-            const payments = await prisma.payment.findMany({
+            const payments = await prisma_1.prisma.payment.findMany({
                 where,
                 include: {
                     reservation: {
@@ -192,12 +198,12 @@ class AdminController {
             return res.json(payments);
         }
         catch (error) {
-            return res.status(500).json({ error: error.message });
+            return serverError(res, error);
         }
     }
     static async getAllContracts(req, res) {
         try {
-            const contracts = await prisma.contract.findMany({
+            const contracts = await prisma_1.prisma.contract.findMany({
                 include: {
                     reservation: {
                         include: {
@@ -211,7 +217,7 @@ class AdminController {
             return res.json(contracts);
         }
         catch (error) {
-            return res.status(500).json({ error: error.message });
+            return serverError(res, error);
         }
     }
     /**
@@ -219,7 +225,7 @@ class AdminController {
      */
     static async getInspections(req, res) {
         try {
-            const inspections = await prisma.vehicleInspection.findMany({
+            const inspections = await prisma_1.prisma.vehicleInspection.findMany({
                 include: {
                     vehicle: true,
                     reservation: { include: { customer: true } }
@@ -229,13 +235,13 @@ class AdminController {
             return res.json(inspections);
         }
         catch (error) {
-            return res.status(500).json({ error: error.message });
+            return serverError(res, error);
         }
     }
     static async createInspection(req, res) {
         try {
             const data = req.body;
-            const inspection = await prisma.vehicleInspection.create({
+            const inspection = await prisma_1.prisma.vehicleInspection.create({
                 data: {
                     vehicleId: data.vehicleId,
                     reservationId: data.reservationId || null,
@@ -251,19 +257,19 @@ class AdminController {
             return res.status(201).json(inspection);
         }
         catch (error) {
-            return res.status(500).json({ error: error.message });
+            return serverError(res, error);
         }
     }
     static async getNotifications(req, res) {
         try {
-            const notifications = await prisma.notification.findMany({
+            const notifications = await prisma_1.prisma.notification.findMany({
                 take: 50,
                 orderBy: { sentAt: 'desc' }
             });
             return res.json(notifications);
         }
         catch (error) {
-            return res.status(500).json({ error: error.message });
+            return serverError(res, error);
         }
     }
 }

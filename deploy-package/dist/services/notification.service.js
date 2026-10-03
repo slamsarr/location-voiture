@@ -1,15 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NotificationService = void 0;
-const client_1 = require("@prisma/client");
-const prisma = new client_1.PrismaClient();
+const prisma_1 = require("../utils/prisma");
 class NotificationService {
     /**
      * Envoi simulé et archivage dans la base de données
      */
     static async send(payload) {
         try {
-            const record = await prisma.notification.create({
+            const record = await prisma_1.prisma.notification.create({
                 data: {
                     type: payload.type,
                     recipient: payload.recipient,

@@ -1,14 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ContractService = void 0;
-const client_1 = require("@prisma/client");
-const prisma = new client_1.PrismaClient();
+const crypto_1 = require("crypto");
+const prisma_1 = require("../utils/prisma");
 class ContractService {
     /**
      * Génère ou récupère le contrat électronique d'une réservation
      */
     static async generateContract(reservationId) {
-        const reservation = await prisma.reservation.findUnique({
+        const reservation = await prisma_1.prisma.reservation.findUnique({
             where: { id: reservationId },
             include: {
                 customer: true,
@@ -26,9 +26,10 @@ class ContractService {
         if (reservation.contract) {
             return reservation.contract;
         }
-        const reference = `CTR-2026-${Math.floor(100000 + Math.random() * 900000)}`;
+        const year = new Date().getFullYear();
+        const reference = `CTR-${year}-${(0, crypto_1.randomBytes)(4).toString('hex').toUpperCase()}`;
         const now = new Date();
-        const contract = await prisma.contract.create({
+        const contract = await prisma_1.prisma.contract.create({
             data: {
                 reference,
                 reservationId: reservation.id,
@@ -43,7 +44,7 @@ class ContractService {
      * Retourne les données complètes et formatées du contrat pour l'affichage et l'export PDF
      */
     static async getContractDetails(reservationId) {
-        const reservation = await prisma.reservation.findUnique({
+        const reservation = await prisma_1.prisma.reservation.findUnique({
             where: { id: reservationId },
             include: {
                 customer: true,

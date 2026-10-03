@@ -1,8 +1,16 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { randomBytes } from 'crypto';
+import { prisma } from '../utils/prisma';
 import { AvailabilityService } from '../services/availability.service';
 
-const prisma = new PrismaClient();
+const isProduction = process.env.NODE_ENV === 'production';
+
+function serverError(res: Response, error: any) {
+  console.error('[VehicleController]', error);
+  return res.status(500).json({
+    error: isProduction ? 'Une erreur interne est survenue.' : error.message,
+  });
+}
 
 export class VehicleController {
   public static async getCategories(req: Request, res: Response) {
@@ -14,7 +22,7 @@ export class VehicleController {
       });
       return res.json(categories);
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 
@@ -93,7 +101,7 @@ export class VehicleController {
         vehicles,
       });
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 
@@ -111,7 +119,7 @@ export class VehicleController {
 
       return res.json(vehicle);
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 
@@ -136,12 +144,12 @@ export class VehicleController {
           imageUrl: data.imageUrl || 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&q=80&w=800',
           description: data.description,
           features: typeof data.features === 'string' ? data.features : JSON.stringify(data.features || []),
-          plateNumber: data.plateNumber || `DK-${Math.floor(1000 + Math.random() * 9000)}-HZ`,
+          plateNumber: data.plateNumber || `DK-${randomBytes(2).toString('hex').toUpperCase()}-HZ`,
         }
       });
       return res.status(201).json(vehicle);
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 
@@ -170,7 +178,7 @@ export class VehicleController {
       });
       return res.json(vehicle);
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 
@@ -182,7 +190,7 @@ export class VehicleController {
       });
       return res.json({ message: 'Véhicule supprimé avec succès' });
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 }

@@ -1,11 +1,19 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { randomBytes } from 'crypto';
+import { prisma } from '../utils/prisma';
 import { PaymentService } from '../services/payment/payment.service';
 import { ContractService } from '../services/contract.service';
 import { NotificationService } from '../services/notification.service';
 import { InitiatePaymentDto } from '../types';
 
-const prisma = new PrismaClient();
+const isProduction = process.env.NODE_ENV === 'production';
+
+function serverError(res: Response, error: any) {
+  console.error('[PaymentController]', error);
+  return res.status(500).json({
+    error: isProduction ? 'Une erreur interne est survenue.' : error.message,
+  });
+}
 
 export class PaymentController {
   public static async initiatePayment(req: Request, res: Response) {
@@ -25,7 +33,8 @@ export class PaymentController {
         return res.status(404).json({ error: 'Réservation introuvable.' });
       }
 
-      const paymentReference = `PAY-2026-${Math.floor(100000 + Math.random() * 900000)}`;
+      const year = new Date().getFullYear();
+      const paymentReference = `PAY-${year}-${randomBytes(4).toString('hex').toUpperCase()}`;
 
       // Exécution via l'orchestrateur PaymentService
       const paymentResult = await PaymentService.processPayment({
@@ -85,7 +94,7 @@ export class PaymentController {
       });
     } catch (error: any) {
       console.error('Payment controller error:', error);
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 
@@ -107,7 +116,7 @@ export class PaymentController {
 
       return res.json(payment);
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 }

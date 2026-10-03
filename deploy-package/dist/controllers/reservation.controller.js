@@ -1,11 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReservationController = void 0;
-const client_1 = require("@prisma/client");
+const crypto_1 = require("crypto");
+const prisma_1 = require("../utils/prisma");
 const pricing_service_1 = require("../services/pricing.service");
 const availability_service_1 = require("../services/availability.service");
 const notification_service_1 = require("../services/notification.service");
-const prisma = new client_1.PrismaClient();
+const isProduction = process.env.NODE_ENV === 'production';
+function serverError(res, error) {
+    console.error('[ReservationController]', error);
+    return res.status(500).json({
+        error: isProduction ? 'Une erreur interne est survenue.' : error.message,
+    });
+}
 class ReservationController {
     /**
      * Calcul dynamique du devis avant réservation
@@ -16,7 +23,7 @@ class ReservationController {
             if (!vehicleId || !startDate || !endDate) {
                 return res.status(400).json({ error: 'vehicleId, startDate et endDate sont requis.' });
             }
-            const vehicle = await prisma.vehicle.findUnique({
+            const vehicle = await prisma_1.prisma.vehicle.findUnique({
                 where: { id: vehicleId }
             });
             if (!vehicle) {
@@ -38,7 +45,7 @@ class ReservationController {
             });
         }
         catch (error) {
-            return res.status(500).json({ error: error.message });
+            return serverError(res, error);
         }
     }
     /**
@@ -57,7 +64,7 @@ class ReservationController {
                     error: 'Désolé, ce véhicule n’est plus disponible aux dates sélectionnées.'
                 });
             }
-            const vehicle = await prisma.vehicle.findUnique({
+            const vehicle = await prisma_1.prisma.vehicle.findUnique({
                 where: { id: dto.vehicleId }
             });
             if (!vehicle) {
@@ -67,11 +74,11 @@ class ReservationController {
             const durationDays = pricing_service_1.PricingService.calculateDurationDays(dto.startDate, dto.endDate);
             const priceQuote = pricing_service_1.PricingService.calculatePrice(vehicle.pricePerDay, vehicle.deposit, durationDays, dto.options || [], dto.pickupLocation, dto.returnLocation);
             // 3. Création ou mise à jour du client
-            let customer = await prisma.customer.findFirst({
+            let customer = await prisma_1.prisma.customer.findFirst({
                 where: { email: dto.customer.email.toLowerCase() }
             });
             if (!customer) {
-                customer = await prisma.customer.create({
+                customer = await prisma_1.prisma.customer.create({
                     data: {
                         firstName: dto.customer.firstName,
                         lastName: dto.customer.lastName,
@@ -86,10 +93,11 @@ class ReservationController {
                     }
                 });
             }
-            // 4. Générer la référence unique HZ-2026-XXXXXX
-            const reference = `HZ-2026-${Math.floor(100000 + Math.random() * 900000)}`;
+            // 4. Générer la référence unique HZ-YYYY-XXXXXXXX (cryptographiquement sûr)
+            const year = new Date().getFullYear();
+            const reference = `HZ-${year}-${(0, crypto_1.randomBytes)(4).toString('hex').toUpperCase()}`;
             // 5. Créer la réservation
-            const reservation = await prisma.reservation.create({
+            const reservation = await prisma_1.prisma.reservation.create({
                 data: {
                     reference,
                     customerId: customer.id,
@@ -130,7 +138,7 @@ class ReservationController {
         }
         catch (error) {
             console.error('Reservation creation error:', error);
-            return res.status(500).json({ error: error.message });
+            return serverError(res, error);
         }
     }
     /**
@@ -139,7 +147,7 @@ class ReservationController {
     static async getReservationById(req, res) {
         try {
             const { id } = req.params;
-            const reservation = await prisma.reservation.findFirst({
+            const reservation = await prisma_1.prisma.reservation.findFirst({
                 where: {
                     OR: [
                         { id },
@@ -157,28 +165,47 @@ class ReservationController {
             if (!reservation) {
                 return res.status(404).json({ error: 'Réservation introuvable.' });
             }
+            if (req.user && req.user.role !== 'ADMIN') {
+                const user = await prisma_1.prisma.user.findUnique({ where: { id: req.user.id } });
+                if (!user || user.email !== reservation.customer.email) {
+                    return res.status(403).json({ error: 'Accès refusé. Cette réservation ne vous appartient pas.' });
+                }
+            }
             return res.json(reservation);
         }
         catch (error) {
-            return res.status(500).json({ error: error.message });
+            return serverError(res, error);
         }
     }
-    /**
-     * Réservations d'un client par email
-     */
     static async getCustomerReservations(req, res) {
         try {
-            const { email } = req.query;
-            if (!email) {
-                return res.status(400).json({ error: 'Email requis' });
+            if (!req.user) {
+                return res.status(401).json({ error: 'Authentification requise.' });
             }
-            const customer = await prisma.customer.findFirst({
-                where: { email: String(email).toLowerCase() }
+            let customerEmail = null;
+            if (req.user.role === 'ADMIN') {
+                const emailParam = req.query.email;
+                if (emailParam) {
+                    customerEmail = emailParam.toLowerCase();
+                }
+            }
+            if (!customerEmail) {
+                const user = await prisma_1.prisma.user.findUnique({
+                    where: { id: req.user.id },
+                    select: { email: true }
+                });
+                if (!user) {
+                    return res.status(404).json({ error: 'Utilisateur introuvable.' });
+                }
+                customerEmail = user.email;
+            }
+            const customer = await prisma_1.prisma.customer.findFirst({
+                where: { email: customerEmail.toLowerCase() }
             });
             if (!customer) {
                 return res.json([]);
             }
-            const reservations = await prisma.reservation.findMany({
+            const reservations = await prisma_1.prisma.reservation.findMany({
                 where: { customerId: customer.id },
                 include: {
                     vehicle: { include: { category: true } },
@@ -190,7 +217,7 @@ class ReservationController {
             return res.json(reservations);
         }
         catch (error) {
-            return res.status(500).json({ error: error.message });
+            return serverError(res, error);
         }
     }
 }

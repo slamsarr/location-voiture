@@ -1,7 +1,14 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../utils/prisma';
 
-const prisma = new PrismaClient();
+const isProduction = process.env.NODE_ENV === 'production';
+
+function serverError(res: Response, error: any) {
+  console.error('[AdminController]', error);
+  return res.status(500).json({
+    error: isProduction ? 'Une erreur interne est survenue.' : error.message,
+  });
+}
 
 export class AdminController {
   /**
@@ -94,7 +101,7 @@ export class AdminController {
         }
       });
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 
@@ -130,7 +137,7 @@ export class AdminController {
 
       return res.json(reservations);
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 
@@ -146,7 +153,7 @@ export class AdminController {
 
       return res.json(updated);
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 
@@ -187,7 +194,7 @@ export class AdminController {
 
       return res.json(formatted);
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 
@@ -211,7 +218,7 @@ export class AdminController {
 
       return res.json(payments);
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 
@@ -231,7 +238,7 @@ export class AdminController {
 
       return res.json(contracts);
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 
@@ -249,7 +256,7 @@ export class AdminController {
       });
       return res.json(inspections);
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 
@@ -271,7 +278,7 @@ export class AdminController {
       });
       return res.status(201).json(inspection);
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 
@@ -283,7 +290,7 @@ export class AdminController {
       });
       return res.json(notifications);
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return serverError(res, error);
     }
   }
 }
