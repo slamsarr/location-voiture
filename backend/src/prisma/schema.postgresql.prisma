@@ -1,263 +1,172 @@
-// ======================================================================
-// HERTZ DIGITAL RENTAL PLATFORM — Prisma Schema PostgreSQL (Supabase)
-// ======================================================================
-// Pour migrer vers Supabase :
-//   1. Exécutez scripts/supabase-migration.sql dans le SQL Editor Supabase
-//   2. Copiez ce fichier : cp schema.postgresql.prisma schema.prisma
-//   3. Mettez à jour backend/.env avec les URLs Supabase
-//   4. Exécutez : npx prisma generate
-// ======================================================================
-
-generator client {
-  provider = "prisma-client-js"
-}
-
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
-enum Role {
-  ADMIN
-  CLIENT
-}
-
-enum VehicleStatus {
-  AVAILABLE
-  RENTED
-  MAINTENANCE
-  RETIRED
-}
-
-enum Transmission {
-  AUTOMATIQUE
-  MANUELLE
-}
-
-enum ReservationStatus {
-  PENDING
-  CONFIRMED
-  ACTIVE
-  COMPLETED
-  CANCELLED
-}
-
-enum PaymentStatus {
-  PENDING
-  PAID
-  FAILED
-  REFUNDED
-}
-
-enum PaymentMethod {
-  WAVE
-  ORANGE_MONEY
-  CREDIT_CARD
-  CASH
-  BANK_TRANSFER
-}
-
-enum ContractStatus {
-  DRAFT
-  ACTIVE
-  COMPLETED
-  CANCELLED
-}
-
-enum InspectionType {
-  PRE_RENTAL
-  POST_RENTAL
-}
-
-enum NotificationType {
-  RESERVATION_CONFIRMED
-  PAYMENT_RECEIVED
-  CONTRACT_READY
-  REMINDER
-  ADMIN_ALERT
-  SYSTEM
+generator client {
+  provider = "prisma-client-js"
 }
 
 model User {
-  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  email        String   @unique
+  id           String    @id @default(uuid())
+  email        String    @unique
   passwordHash String
   name         String
   phone        String?
-  role         Role     @default(CLIENT)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  customer      Customer?
-  notifications Notification[]
-}
-
-model VehicleCategory {
-  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name        String    @unique
-  description String?
-  icon        String?
-  createdAt   DateTime  @default(now())
-
-  vehicles    Vehicle[]
-}
-
-model Agency {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name      String
-  city      String
-  address   String?
-  phone     String?
-  email     String?
-  latitude  Float?
-  longitude Float?
-  openHours String?
-  createdAt DateTime @default(now())
-
-  vehicles           Vehicle[]
-  pickupReservations  Reservation[] @relation("PickupAgency")
-  dropoffReservations Reservation[] @relation("DropoffAgency")
-}
-
-model Vehicle {
-  id           String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  brand        String
-  model        String
-  year         Int
-  plate        String        @unique
-  color        String?
-  categoryId   String        @db.Uuid
-  dailyRate    Decimal       @db.Decimal(10, 2)
-  weeklyRate   Decimal?      @db.Decimal(10, 2)
-  monthlyRate  Decimal?      @db.Decimal(10, 2)
-  mileage      Int           @default(0)
-  fuel         String        @default("ESSENCE")
-  transmission Transmission  @default(AUTOMATIQUE)
-  seats        Int           @default(5)
-  status       VehicleStatus @default(AVAILABLE)
-  description  String?
-  features     String[]
-  images       String[]
-  thumbnailUrl String?
-  agencyId     String?       @db.Uuid
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-
-  category     VehicleCategory @relation(fields: [categoryId], references: [id])
-  agency       Agency?         @relation(fields: [agencyId], references: [id])
-  reservations Reservation[]
+  role         String    @default("CLIENT") // "CLIENT" | "ADMIN"
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  customers    Customer?
 }
 
 model Customer {
-  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  userId           String?  @unique @db.Uuid
-  firstName        String
-  lastName         String
-  email            String
-  phone            String?
-  licenseNumber    String?
-  licenseExpiry    DateTime? @db.Date
-  licenseCountry   String?  @default("Sénégal")
-  licensePhotoUrl  String?
-  address          String?
-  city             String?
-  country          String?  @default("Sénégal")
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id             String        @id @default(uuid())
+  userId         String?       @unique
+  user           User?         @relation(fields: [userId], references: [id])
+  firstName      String
+  lastName       String
+  email          String
+  phone          String
+  licenseNumber  String
+  licenseExpiry  String
+  licenseCountry String        @default("Sénégal")
+  address        String?
+  city           String?
+  country        String?       @default("Sénégal")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  reservations   Reservation[]
+}
 
-  user         User?         @relation(fields: [userId], references: [id])
-  reservations Reservation[]
+model VehicleCategory {
+  id          String    @id @default(uuid())
+  name        String    @unique // Économique, Compacte, Berline, SUV, Premium, Utilitaire
+  slug        String    @unique
+  description String?
+  icon        String?
+  vehicles    Vehicle[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Vehicle {
+  id              String              @id @default(uuid())
+  brand           String
+  model           String
+  year            Int
+  categoryId      String
+  category        VehicleCategory     @relation(fields: [categoryId], references: [id])
+  transmission    String              @default("MANUAL") // "MANUAL" | "AUTOMATIC"
+  fuel            String              @default("DIESEL") // "GASOLINE" | "DIESEL" | "HYBRID" | "ELECTRIC"
+  seats           Int                 @default(5)
+  doors           Int                 @default(5)
+  airConditioning Boolean             @default(true)
+  pricePerDay     Float // In FCFA
+  deposit         Float // Caution in FCFA
+  mileagePolicy   String              @default("Kilométrage illimité")
+  status          String              @default("AVAILABLE") // "AVAILABLE" | "RESERVED" | "RENTED" | "MAINTENANCE"
+  imageUrl        String
+  gallery         String? // JSON string array of URLs
+  description     String
+  features        String? // JSON string array of features
+  plateNumber     String              @unique
+  reservations    Reservation[]
+  inspections     VehicleInspection[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 }
 
 model Reservation {
-  id              String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  reference       String            @unique
-  customerId      String            @db.Uuid
-  vehicleId       String            @db.Uuid
-  startDate       DateTime          @db.Date
-  endDate         DateTime          @db.Date
-  pickupAgencyId  String?           @db.Uuid
-  dropoffAgencyId String?           @db.Uuid
-  days            Int
-  dailyRate       Decimal           @db.Decimal(10, 2)
-  subtotal        Decimal           @db.Decimal(10, 2)
-  taxes           Decimal           @default(0) @db.Decimal(10, 2)
-  totalAmount     Decimal           @db.Decimal(10, 2)
-  driverRequired  Boolean           @default(false)
-  driverFee       Decimal           @default(0) @db.Decimal(10, 2)
-  insurance       String?
-  insuranceFee    Decimal           @default(0) @db.Decimal(10, 2)
-  status          ReservationStatus @default(PENDING)
-  notes           String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  id              String              @id @default(uuid())
+  reference       String              @unique // HZ-2026-XXXXX
+  customerId      String
+  customer        Customer            @relation(fields: [customerId], references: [id])
+  vehicleId       String
+  vehicle         Vehicle             @relation(fields: [vehicleId], references: [id])
+  startDate       String // YYYY-MM-DD
+  endDate         String // YYYY-MM-DD
+  pickupTime      String              @default("10:00")
+  returnTime      String              @default("10:00")
+  pickupLocation  String              @default("Agence Aéroport Blaise Diagne (AIBD)")
+  returnLocation  String              @default("Agence Aéroport Blaise Diagne (AIBD)")
+  dailyRate       Float
+  durationDays    Int
+  subtotal        Float
+  optionsTotal    Float               @default(0)
+  taxTotal        Float               @default(0)
+  totalAmount     Float
+  depositAmount   Float
+  status          String              @default("PENDING") // "PENDING" | "CONFIRMED" | "PAID" | "ACTIVE" | "COMPLETED" | "CANCELLED"
+  options         ReservationOption[]
+  payments        Payment[]
+  contract        Contract?
+  inspections     VehicleInspection[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+}
 
-  customer      Customer      @relation(fields: [customerId], references: [id])
-  vehicle       Vehicle       @relation(fields: [vehicleId], references: [id])
-  pickupAgency  Agency?       @relation("PickupAgency", fields: [pickupAgencyId], references: [id])
-  dropoffAgency Agency?       @relation("DropoffAgency", fields: [dropoffAgencyId], references: [id])
-  payments      Payment[]
-  contract      Contract?
-  inspections   Inspection[]
+model ReservationOption {
+  id            String      @id @default(uuid())
+  reservationId String
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  code          String // "GPS", "CHILD_SEAT", "EXTRA_DRIVER", "FULL_INSURANCE", "DELIVERY"
+  name          String
+  pricePerDay   Float
+  quantity      Int         @default(1)
+  totalPrice    Float
 }
 
 model Payment {
-  id                 String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  reference          String        @unique
-  reservationId      String        @db.Uuid
-  amount             Decimal       @db.Decimal(10, 2)
-  currency           String        @default("XOF")
-  method             PaymentMethod
-  status             PaymentStatus @default(PENDING)
+  id                 String      @id @default(uuid())
+  reference          String      @unique // PAY-2026-XXXXX
+  reservationId      String
+  reservation        Reservation @relation(fields: [reservationId], references: [id])
+  amount             Float
+  currency           String      @default("FCFA")
+  method             String // "WAVE" | "ORANGE_MONEY" | "INTOUCH" | "CARD"
+  provider           String      @default("MockPaymentProvider")
+  status             String      @default("INITIATED") // "INITIATED" | "PENDING" | "SUCCESS" | "FAILED"
+  transactionDetails String? // JSON details / mock payload
   paidAt             DateTime?
-  transactionDetails Json?
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
-
-  reservation Reservation @relation(fields: [reservationId], references: [id])
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
 }
 
 model Contract {
-  id            String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  reference     String         @unique
-  reservationId String         @unique @db.Uuid
-  content       String
-  status        ContractStatus @default(DRAFT)
+  id            String      @id @default(uuid())
+  reference     String      @unique // CTR-2026-XXXXX
+  reservationId String      @unique
+  reservation   Reservation @relation(fields: [reservationId], references: [id])
+  status        String      @default("ISSUED") // "DRAFT" | "ISSUED" | "SIGNED"
   signedAt      DateTime?
-  pdfUrl        String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-
-  reservation Reservation @relation(fields: [reservationId], references: [id])
-}
-
-model Inspection {
-  id            String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  reservationId String         @db.Uuid
-  type          InspectionType
-  mileageIn     Int?
-  mileageOut    Int?
-  fuelLevelIn   Int?
-  fuelLevelOut  Int?
-  damages       Json?
-  photos        String[]
-  notes         String?
-  inspectorId   String?        @db.Uuid
-  createdAt     DateTime       @default(now())
-
-  reservation Reservation @relation(fields: [reservationId], references: [id])
+  termsAccepted Boolean     @default(true)
+  pdfDataUrl    String? // Embedded base64 or generated document path
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 }
 
 model Notification {
-  id        String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  userId    String           @db.Uuid
-  type      NotificationType
-  title     String
-  message   String
-  read      Boolean          @default(false)
-  data      Json?
-  createdAt DateTime         @default(now())
+  id        String   @id @default(uuid())
+  type      String // "EMAIL" | "SMS" | "WHATSAPP"
+  recipient String
+  subject   String?
+  content   String
+  status    String   @default("SENT") // "SENT" | "PENDING" | "FAILED"
+  sentAt    DateTime @default(now())
+}
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+model VehicleInspection {
+  id             String       @id @default(uuid())
+  vehicleId      String
+  vehicle        Vehicle      @relation(fields: [vehicleId], references: [id])
+  reservationId  String?
+  reservation    Reservation? @relation(fields: [reservationId], references: [id])
+  type           String // "CHECK_IN" | "CHECK_OUT"
+  mileage        Int
+  fuelLevel      Int // 0 - 100 %
+  damages        String? // JSON array of damage markers [{part: "front_bumper", severity: "minor", note: "scratch"}]
+  photos         String? // JSON array of image URLs
+  inspectorNotes String?
+  completedAt    DateTime     @default(now())
 }
