@@ -12,11 +12,24 @@
  *   - build absent    → fallback express minimal sans plantage
  */
 
+const path = require('path');
+const fs = require('fs');
+
+// Résolution universelle des node_modules
+const candidateModules = [
+  path.join(__dirname, 'node_modules'),
+  path.join(__dirname, '..', 'node_modules'),
+  path.join(__dirname, '..', 'backend', 'node_modules'),
+];
+for (const dir of candidateModules) {
+  if (fs.existsSync(dir) && module.paths && !module.paths.includes(dir)) {
+    module.paths.unshift(dir);
+  }
+}
+
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const path = require('path');
-const fs = require('fs');
 
 dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
@@ -50,6 +63,8 @@ if (foundBuild) {
   ));
 }
 
+module.exports = app;
+
 if (require.main === module && typeof app === 'function' && typeof app.listen === 'function') {
   const PORT = process.env.PORT || 5000;
   const isProduction = (process.env.NODE_ENV !== 'development');
@@ -64,6 +79,5 @@ if (require.main === module && typeof app === 'function' && typeof app.listen ==
     console.log('⚡ Statut        : En ligne ✅');
     console.log('=======================================================');
   });
-} else {
-  module.exports = app;
 }
+

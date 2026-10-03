@@ -17,11 +17,24 @@
  * -----------------------------------------------------------------
  */
 
+const path = require('path');
+const fs = require('fs');
+
+// Résolution universelle des node_modules (Hostinger racine + sous-dossiers)
+const candidateModules = [
+  path.join(__dirname, 'node_modules'),
+  path.join(__dirname, 'backend', 'node_modules'),
+  path.join(__dirname, 'deploy-package', 'node_modules'),
+];
+for (const dir of candidateModules) {
+  if (fs.existsSync(dir) && module.paths && !module.paths.includes(dir)) {
+    module.paths.unshift(dir);
+  }
+}
+
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const path = require('path');
-const fs = require('fs');
 
 dotenv.config();
 
@@ -42,6 +55,7 @@ if (foundBuild) {
   const built = require('./backend/server.js');
   app = (built && built.default) ? built.default : built;
 } else {
+
   console.warn('============================================================');
   console.warn('⚠️  [PRE-BUILD] Build backend introuvable');
   console.warn('      server.js appelé avant npm run build:hostinger');
@@ -66,7 +80,9 @@ if (foundBuild) {
   ));
 }
 
-if (require.main === module && typeof app && typeof app.listen === 'function') {
+module.exports = app;
+
+if (require.main === module && app && typeof app.listen === 'function') {
   const PORT = process.env.PORT || 5000;
   const isProduction = (process.env.NODE_ENV !== 'development');
   const URL = process.env.APP_URL || `http://localhost:${PORT}`;
@@ -80,6 +96,5 @@ if (require.main === module && typeof app && typeof app.listen === 'function') {
     console.log('⚡ Statut        : En ligne ✅');
     console.log('=======================================================');
   });
-} else {
-  module.exports = app;
 }
+
