@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -18,8 +51,11 @@ dotenv_1.default.config({
 });
 const resolveDatabaseUrlFromEnv = (callerDirname) => {
     const raw = process.env.DATABASE_URL;
-    if (!raw)
-        return raw;
+    if (!raw) {
+        const defaultDb = path_1.default.resolve(callerDirname, '..', 'dev.db');
+        process.env.DATABASE_URL = `file:${defaultDb}`;
+        return process.env.DATABASE_URL;
+    }
     const match = raw.match(/^file:(.+)$/);
     if (!match)
         return raw;
@@ -76,10 +112,32 @@ app.use((req, res, next) => {
     });
     next();
 });
-// Route de santé
-app.get('/api/health', (req, res) => {
+// Route de santé avec diagnostic BDD
+app.get('/api/health', async (req, res) => {
+    let dbStatus = 'unknown';
+    let dbError = null;
+    let vehicleCount = 0;
+    let userCount = 0;
+    try {
+        const { prisma } = await Promise.resolve().then(() => __importStar(require('./utils/prisma')));
+        vehicleCount = await prisma.vehicle.count();
+        userCount = await prisma.user.count();
+        dbStatus = 'connected';
+    }
+    catch (err) {
+        dbStatus = 'error';
+        dbError = err?.message || String(err);
+    }
     res.json({
-        status: 'healthy',
+        status: dbStatus === 'connected' ? 'healthy' : 'degraded',
+        database: {
+            status: dbStatus,
+            error: dbError,
+            vehicleCount,
+            userCount,
+            hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
+            dbProtocol: (process.env.DATABASE_URL || '').split(':')[0],
+        },
         platform: 'Hertz Digital Rental Platform',
         version: '1.0.0',
         environment: process.env.NODE_ENV || 'development',

@@ -51,13 +51,22 @@ export const AdminDashboardPage: React.FC = () => {
 
   const { kpis, charts } = data;
 
-  // Luxury palette for charts
-  const luxuryPaymentBreakdown = [
-    { name: 'Wave Business', count: 48, percentage: 48, color: '#B89B5F' },
-    { name: 'Orange Money', count: 32, percentage: 32, color: '#D8C59A' },
+  // 📊 Données paiements :
+  // 1) PRIVILÉGIER la vraie donnée backend (charts.paymentMethodsBreakdown)
+  //    déjà formatée palette luxe dorée.
+  // 2) Fallback : jeu statique si la BDD est fraîche (pas encore de paiements)
+  const PAYMENTS_FALLBACK = [
+    { name: 'Wave Business',  count: 48, percentage: 48, color: '#B89B5F' },
+    { name: 'Orange Money',   count: 32, percentage: 32, color: '#D8C59A' },
     { name: 'Carte Bancaire', count: 14, percentage: 14, color: '#94A3B8' },
-    { name: 'InTouch API', count: 6, percentage: 6, color: '#64748B' },
+    { name: 'InTouch API',    count: 6,  percentage: 6,  color: '#64748B' },
   ];
+  const hasRealPaymentData = Array.isArray(charts?.paymentMethodsBreakdown)
+    && charts.paymentMethodsBreakdown.length > 0
+    && charts.paymentMethodsBreakdown.some((x: any) => typeof x.count === 'number' && x.count > 0);
+  const luxuryPaymentBreakdown = hasRealPaymentData
+    ? charts.paymentMethodsBreakdown
+    : (charts?.paymentMethodsBreakdown?.length ? charts.paymentMethodsBreakdown : PAYMENTS_FALLBACK);
 
   const kpiCards = [
     {

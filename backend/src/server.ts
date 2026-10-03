@@ -15,7 +15,11 @@ dotenv.config({
 
 const resolveDatabaseUrlFromEnv = (callerDirname: string) => {
   const raw = process.env.DATABASE_URL;
-  if (!raw) return raw;
+  if (!raw) {
+    const defaultDb = path.resolve(callerDirname, '..', 'dev.db');
+    process.env.DATABASE_URL = `file:${defaultDb}`;
+    return process.env.DATABASE_URL;
+  }
   const match = raw.match(/^file:(.+)$/);
   if (!match) return raw;
   let dbRelPath = match[1];
@@ -71,10 +75,32 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// Route de santé
-app.get('/api/health', (req: Request, res: Response) => {
+// Route de santé avec diagnostic BDD
+app.get('/api/health', async (req: Request, res: Response) => {
+  let dbStatus = 'unknown';
+  let dbError: string | null = null;
+  let vehicleCount = 0;
+  let userCount = 0;
+  try {
+    const { prisma } = await import('./utils/prisma');
+    vehicleCount = await prisma.vehicle.count();
+    userCount = await prisma.user.count();
+    dbStatus = 'connected';
+  } catch (err: any) {
+    dbStatus = 'error';
+    dbError = err?.message || String(err);
+  }
+
   res.json({
-    status: 'healthy',
+    status: dbStatus === 'connected' ? 'healthy' : 'degraded',
+    database: {
+      status: dbStatus,
+      error: dbError,
+      vehicleCount,
+      userCount,
+      hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
+      dbProtocol: (process.env.DATABASE_URL || '').split(':')[0],
+    },
     platform: 'Hertz Digital Rental Platform',
     version: '1.0.0',
     environment: process.env.NODE_ENV || 'development',

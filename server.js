@@ -38,6 +38,59 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
+// Auto-configuration Prisma BDD (PostgreSQL/Supabase vs SQLite)
+(function autoConfigureDatabase() {
+  const dbUrl = process.env.DATABASE_URL || '';
+  const isPostgres = dbUrl.startsWith('postgres://') || dbUrl.startsWith('postgresql://');
+  const backendDir = path.join(__dirname, 'backend');
+
+  if (isPostgres) {
+    const pgSchema = path.join(backendDir, 'src', 'prisma', 'schema.postgresql.prisma');
+    const targetSchema = path.join(backendDir, 'src', 'prisma', 'schema.prisma');
+    const distSchema = path.join(backendDir, 'dist', 'prisma', 'schema.prisma');
+
+    if (fs.existsSync(pgSchema)) {
+      try {
+        const pgContent = fs.readFileSync(pgSchema, 'utf8');
+        let needsRegen = false;
+
+        if (!fs.existsSync(targetSchema) || fs.readFileSync(targetSchema, 'utf8') !== pgContent) {
+          fs.writeFileSync(targetSchema, pgContent, 'utf8');
+          needsRegen = true;
+        }
+        if (fs.existsSync(path.dirname(distSchema))) {
+          if (!fs.existsSync(distSchema) || fs.readFileSync(distSchema, 'utf8') !== pgContent) {
+            fs.writeFileSync(distSchema, pgContent, 'utf8');
+            needsRegen = true;
+          }
+        }
+
+        const clientSchema = path.join(backendDir, 'node_modules', '.prisma', 'client', 'schema.prisma');
+        if (fs.existsSync(clientSchema)) {
+          const cs = fs.readFileSync(clientSchema, 'utf8');
+          if (!cs.includes('provider = "postgresql"')) {
+            needsRegen = true;
+          }
+        } else {
+          needsRegen = true;
+        }
+
+        if (needsRegen) {
+          console.log('🐘 PostgreSQL/Supabase détecté — regénération Prisma Client...');
+          const { execSync } = require('child_process');
+          execSync(`npx prisma generate --schema="${pgSchema}"`, { cwd: backendDir, stdio: 'inherit', timeout: 35000 });
+          console.log('✅ Prisma Client PostgreSQL synchronisé !');
+        }
+      } catch (err) {
+        console.warn('⚠️ Auto-config Prisma PostgreSQL :', err.message);
+      }
+    }
+  } else if (!dbUrl) {
+    const defaultDb = path.join(backendDir, 'dev.db');
+    process.env.DATABASE_URL = `file:${defaultDb}`;
+  }
+})();
+
 const CANDIDATE_BUILDS = [
   path.join(__dirname, 'backend', 'dist', 'server.js'),
   path.join(__dirname, 'deploy-package', 'dist', 'server.js'),
