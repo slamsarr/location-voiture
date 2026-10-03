@@ -154,6 +154,15 @@ export const api = {
     body: JSON.stringify({ role }),
   }),
   me: () => request<UserSession>('/auth/me'),
+  getProfile: () => request<any>('/auth/profile'),
+  updateProfile: (data: any) => request<any>('/auth/profile', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  changePassword: (data: { currentPassword: string; newPassword: string }) => request<any>('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
 
   queryClientAI: (query: string, context?: any) => request<any>('/ai/client-query', {
     method: 'POST',
@@ -163,4 +172,7 @@ export const api = {
     method: 'POST',
     body: JSON.stringify({ query }),
   }),
+
+  getPaymentReceipt: (reference: string) => request<any>(`/payments/${reference}/receipt`),
 };
+

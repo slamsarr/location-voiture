@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CreateInspectionSchema = exports.AdminAIQuerySchema = exports.ClientAIQuerySchema = exports.UpdateVehicleSchema = exports.CreateVehicleSchema = exports.InitiatePaymentSchema = exports.UpdateReservationStatusSchema = exports.CreateReservationSchema = exports.QuoteSchema = exports.DemoLoginSchema = exports.RegisterSchema = exports.LoginSchema = void 0;
+exports.WebhookPaymentSchema = exports.ChangePasswordSchema = exports.UpdateProfileSchema = exports.CreateInspectionSchema = exports.AdminAIQuerySchema = exports.ClientAIQuerySchema = exports.UpdateVehicleSchema = exports.CreateVehicleSchema = exports.InitiatePaymentSchema = exports.UpdateReservationStatusSchema = exports.CreateReservationSchema = exports.QuoteSchema = exports.DemoLoginSchema = exports.RegisterSchema = exports.LoginSchema = void 0;
 const zod_1 = require("zod");
 exports.LoginSchema = zod_1.z.object({
     email: zod_1.z.string().email('Format email invalide').min(3).max(255),
@@ -113,4 +113,29 @@ exports.CreateInspectionSchema = zod_1.z.object({
     damages: zod_1.z.string().optional(),
     photos: zod_1.z.string().optional(),
     inspectorNotes: zod_1.z.string().optional().or(zod_1.z.string().max(5000)),
+});
+exports.UpdateProfileSchema = zod_1.z.object({
+    name: zod_1.z.string().min(2, 'Le nom doit contenir au moins 2 caractères').max(255).optional(),
+    phone: zod_1.z.string().min(6, 'Numéro de téléphone invalide').max(50).optional(),
+    address: zod_1.z.string().max(500).optional(),
+    city: zod_1.z.string().max(255).optional(),
+    country: zod_1.z.string().max(255).optional(),
+    licenseNumber: zod_1.z.string().min(3).max(100).optional(),
+    licenseExpiry: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date d’expiration invalide (YYYY-MM-DD)').optional(),
+    licenseCountry: zod_1.z.string().max(100).optional(),
+    licensePhotoUrl: zod_1.z.string().max(5000000).optional(), // supporte base64 ou URL
+});
+exports.ChangePasswordSchema = zod_1.z.object({
+    currentPassword: zod_1.z.string().min(1, 'Le mot de passe actuel est requis'),
+    newPassword: zod_1.z.string().min(8, 'Le nouveau mot de passe doit contenir au moins 8 caractères')
+        .regex(/[A-Z]/, 'Le mot de passe doit contenir au moins une lettre majuscule')
+        .regex(/[0-9]/, 'Le mot de passe doit contenir au moins un chiffre'),
+});
+exports.WebhookPaymentSchema = zod_1.z.object({
+    event: zod_1.z.string(),
+    reference: zod_1.z.string(),
+    status: zod_1.z.enum(['SUCCESS', 'FAILED', 'PENDING']),
+    amount: zod_1.z.number().optional(),
+    method: zod_1.z.string().optional(),
+    signature: zod_1.z.string().optional(),
 });

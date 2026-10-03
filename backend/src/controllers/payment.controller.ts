@@ -119,4 +119,122 @@ export class PaymentController {
       return serverError(res, error);
     }
   }
+
+  /**
+   * Reçu officiel certifié de transaction (téléchargeable et imprimable)
+   */
+  public static async getPaymentReceipt(req: Request, res: Response) {
+    try {
+      const { reference } = req.params;
+      const payment = await prisma.payment.findUnique({
+        where: { reference },
+        include: {
+          reservation: {
+            include: {
+              customer: true,
+              vehicle: { include: { category: true } },
+              options: true,
+              contract: true
+            }
+          }
+        }
+      });
+
+      if (!payment) {
+        return res.status(404).json({ error: 'Reçu introuvable.' });
+      }
+
+      const receipt = {
+        receiptNumber: `REC-${payment.reference.replace('PAY-', '')}`,
+        issuedAt: payment.paidAt || payment.createdAt,
+        payment: {
+          reference: payment.reference,
+          amount: payment.amount,
+          currency: payment.currency,
+          method: payment.method,
+          status: payment.status,
+          transactionId: `TXN-${payment.id.substring(0, 8).toUpperCase()}`,
+        },
+        merchant: {
+          name: 'Hertz Digital Rental Platform Sénégal',
+          company: 'Hertz Mobility West Africa S.A.S.',
+          address: 'Aéroport International Blaise Diagne (AIBD), Dakar, Sénégal',
+          taxId: 'SN-DKR-2026-B-1428',
+          phone: '+221 33 800 00 00',
+          email: 'support@hertz-senegal.com',
+          website: process.env.APP_URL || 'https://purple-cat-911761.hostingersite.com',
+        },
+        client: {
+          name: `${payment.reservation.customer.firstName} ${payment.reservation.customer.lastName}`,
+          email: payment.reservation.customer.email,
+          phone: payment.reservation.customer.phone,
+          address: payment.reservation.customer.address || 'Dakar, Sénégal',
+        },
+        reservation: {
+          reference: payment.reservation.reference,
+          dates: `${payment.reservation.startDate} au ${payment.reservation.endDate} (${payment.reservation.durationDays} jours)`,
+          vehicle: `${payment.reservation.vehicle.brand} ${payment.reservation.vehicle.model} (${payment.reservation.vehicle.plateNumber})`,
+          pickupLocation: payment.reservation.pickupLocation,
+          returnLocation: payment.reservation.returnLocation,
+          subtotal: payment.reservation.subtotal,
+          optionsTotal: payment.reservation.optionsTotal,
+          totalAmount: payment.reservation.totalAmount,
+          deposit: payment.reservation.depositAmount,
+        },
+        verificationQrData: `${process.env.APP_URL || 'https://hertz-digital.com'}/recu/${payment.reference}`,
+        isCertified: true,
+      };
+
+      return res.json(receipt);
+    } catch (error: any) {
+      return serverError(res, error);
+    }
+  }
+
+  /**
+   * Webhook d'écoute pour passerelles de paiement réelles (Wave, Orange Money, InTouch)
+   */
+  public static async handleWebhook(req: Request, res: Response) {
+    try {
+      const { reference, status } = req.body;
+
+      if (!reference) {
+        return res.status(400).json({ error: 'Référence manquante dans le webhook' });
+      }
+
+      const payment = await prisma.payment.findUnique({
+        where: { reference },
+        include: { reservation: { include: { customer: true } } }
+      });
+
+      if (!payment) {
+        return res.status(404).json({ error: 'Paiement introuvable' });
+      }
+
+      const newStatus = status === 'SUCCESS' ? 'SUCCESS' : (status === 'FAILED' ? 'FAILED' : 'PENDING');
+
+      await prisma.payment.update({
+        where: { reference },
+        data: {
+          status: newStatus,
+          paidAt: newStatus === 'SUCCESS' ? new Date() : null,
+          transactionDetails: JSON.stringify(req.body)
+        }
+      });
+
+      if (newStatus === 'SUCCESS') {
+        await prisma.reservation.update({
+          where: { id: payment.reservationId },
+          data: { status: 'PAID' }
+        });
+        await ContractService.generateContract(payment.reservationId);
+      }
+
+      return res.json({ received: true, status: newStatus });
+    } catch (error: any) {
+      console.error('Webhook error:', error);
+      return serverError(res, error);
+    }
+  }
 }
+

@@ -16,6 +16,8 @@ import { CustomerReservationsPage } from './pages/CustomerReservationsPage';
 import { LoginPage } from './pages/LoginPage';
 import { FAQPage } from './pages/FAQPage';
 import { ContactPage } from './pages/ContactPage';
+import { ProfilePage } from './pages/ProfilePage';
+
 
 // Admin Pages
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
@@ -47,6 +49,8 @@ export function App() {
           <Route path="connexion" element={<LoginPage />} />
           <Route path="faq" element={<FAQPage />} />
           <Route path="contact" element={<ContactPage />} />
+          <Route path="profil" element={<ProfilePage />} />
+
         </Route>
 
         {/* Admin Back-Office Routes */}

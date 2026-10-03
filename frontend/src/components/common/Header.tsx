@@ -146,6 +146,22 @@ export const Header: React.FC = () => {
 
                   {user && (
                     <div className="border-t border-white/[0.06] mt-2 pt-1">
+                      <Link
+                        to="/profil"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="w-full text-left px-3 py-1.5 rounded-lg text-slate-300 hover:bg-white/[0.04] flex items-center gap-2 text-xs"
+                      >
+                        <User className="w-3.5 h-3.5 text-[#D8C59A]" />
+                        Mon Profil
+                      </Link>
+                      <Link
+                        to="/mes-reservations"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="w-full text-left px-3 py-1.5 rounded-lg text-slate-300 hover:bg-white/[0.04] flex items-center gap-2 text-xs"
+                      >
+                        <ShoppingBag className="w-3.5 h-3.5 text-[#D8C59A]" />
+                        Mes Réservations
+                      </Link>
                       <button
                         onClick={() => { logout(); setUserMenuOpen(false); }}
                         className="w-full text-left px-3 py-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 text-xs"
@@ -155,6 +171,7 @@ export const Header: React.FC = () => {
                       </button>
                     </div>
                   )}
+
                 </div>
               )}
             </div>

@@ -26,6 +26,9 @@ import {
   ClientAIQuerySchema,
   AdminAIQuerySchema,
   CreateInspectionSchema,
+  UpdateProfileSchema,
+  ChangePasswordSchema,
+  WebhookPaymentSchema,
 } from '../utils/validation.schemas';
 
 const router = Router();
@@ -50,11 +53,14 @@ const reservationLimiter = rateLimit({
   message: { error: 'Trop de demandes de réservation. Réessayez plus tard.' },
 });
 
-// --- Auth Routes (publiques, protégées par rate limiter) ---
+// --- Auth & Profile Routes ---
 router.post('/auth/login', authLimiter, validateBody(LoginSchema), AuthController.login);
 router.post('/auth/register', authLimiter, validateBody(RegisterSchema), AuthController.register);
 router.post('/auth/demo-login', authLimiter, validateBody(DemoLoginSchema), AuthController.demoLogin);
 router.get('/auth/me', authMiddleware, AuthController.me);
+router.get('/auth/profile', authMiddleware, AuthController.getProfile);
+router.put('/auth/profile', authMiddleware, validateBody(UpdateProfileSchema), AuthController.updateProfile);
+router.post('/auth/change-password', authMiddleware, validateBody(ChangePasswordSchema), AuthController.changePassword);
 
 // --- Vehicles & Categories (lecture publique, écriture admin) ---
 router.get('/categories', VehicleController.getCategories);
@@ -74,6 +80,8 @@ router.get('/reservations/:id', authMiddleware, ReservationController.getReserva
 // --- Payments ---
 router.post('/payments', authMiddleware, validateBody(InitiatePaymentSchema), PaymentController.initiatePayment);
 router.get('/payments/:reference', authMiddleware, PaymentController.getPaymentByReference);
+router.get('/payments/:reference/receipt', PaymentController.getPaymentReceipt);
+router.post('/payments/webhook', validateBody(WebhookPaymentSchema), PaymentController.handleWebhook);
 
 // --- Contracts ---
 router.get('/contracts/:reservationId', authMiddleware, ContractController.getContractDetails);

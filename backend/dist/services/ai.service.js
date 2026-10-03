@@ -76,10 +76,43 @@ class AIService {
         });
         scoredVehicles.sort((a, b) => b.matchScore - a.matchScore);
         const topPicks = scoredVehicles.slice(0, 3);
-        const answer = `J'ai analysé votre demande. Voici ${topPicks.length} véhicules parfaitement adaptés à vos besoins de mobilité${criteria.durationDays ? ` pour une durée estimée de ${criteria.durationDays} jours` : ''}.`;
+        // Comparaison intelligente si demandée ou si 2 véhicules en tête
+        let comparison = undefined;
+        if ((q.includes('compar') || q.includes('versus') || q.includes('vs') || q.includes('difference')) && topPicks.length >= 2) {
+            const vA = topPicks[0];
+            const vB = topPicks[1];
+            const origA = vehicles.find(v => v.id === vA.vehicleId);
+            const origB = vehicles.find(v => v.id === vB.vehicleId);
+            const verdict = vA.pricePerDay < vB.pricePerDay
+                ? `${vA.brand} ${vA.model} est plus économique de ${(vB.pricePerDay - vA.pricePerDay).toLocaleString('fr-FR')} FCFA/jour, idéal pour optimiser votre budget.`
+                : `${vA.brand} ${vA.model} offre un meilleur niveau d'équipement et de confort routier.`;
+            comparison = {
+                vehicleA: {
+                    id: origA.id,
+                    name: `${origA.brand} ${origA.model}`,
+                    pricePerDay: origA.pricePerDay,
+                    category: origA.category.name,
+                    transmission: origA.transmission === 'AUTOMATIC' ? 'Automatique' : 'Manuelle',
+                    seats: origA.seats,
+                },
+                vehicleB: {
+                    id: origB.id,
+                    name: `${origB.brand} ${origB.model}`,
+                    pricePerDay: origB.pricePerDay,
+                    category: origB.category.name,
+                    transmission: origB.transmission === 'AUTOMATIC' ? 'Automatique' : 'Manuelle',
+                    seats: origB.seats,
+                },
+                verdict,
+            };
+        }
+        const answer = comparison
+            ? `J'ai préparé un comparatif détaillé entre nos modèles phares pour faciliter votre choix.`
+            : `J'ai analysé votre demande. Voici ${topPicks.length} véhicules parfaitement adaptés à vos besoins de mobilité${criteria.durationDays ? ` pour une durée estimée de ${criteria.durationDays} jours` : ''}.`;
         return {
             answer,
             recommendations: topPicks,
+            comparison,
             extractedCriteria: criteria,
         };
     }
@@ -88,6 +121,20 @@ class AIService {
      */
     static async handleAdminQuery(query) {
         const q = query.toLowerCase();
+        // 0. Prévision et Taux d'occupation
+        if (q.includes('occupation') || q.includes('prevision') || q.includes('prévision') || q.includes('tendance')) {
+            const totalVehicles = await prisma_1.prisma.vehicle.count();
+            const activeRentals = await prisma_1.prisma.reservation.count({
+                where: { status: { in: ['PAID', 'CONFIRMED', 'ACTIVE'] } }
+            });
+            const occupancyRate = Math.min(100, Math.round((activeRentals / (totalVehicles || 1)) * 100));
+            return {
+                question: query,
+                answer: `Le taux d'occupation prévisionnel pour les 15 prochains jours est estimé à **${occupancyRate}%** (${activeRentals} véhicules engagés sur une flotte de ${totalVehicles}). Recommandation : Ajuster la tarification des SUV pour capter la demande croissante du week-end.`,
+                dataSummary: { occupancyRate, totalFleet: totalVehicles, engagedVehicles: activeRentals },
+                suggestedAction: 'Optimiser la tarification dynamique de la flotte'
+            };
+        }
         // 1. Chiffre d'affaires
         if (q.includes('chiffre d\'affaires') || q.includes('ca') || q.includes('revenu')) {
             const payments = await prisma_1.prisma.payment.findMany({

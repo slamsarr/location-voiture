@@ -32,11 +32,14 @@ const reservationLimiter = (0, express_rate_limit_1.default)({
     legacyHeaders: false,
     message: { error: 'Trop de demandes de réservation. Réessayez plus tard.' },
 });
-// --- Auth Routes (publiques, protégées par rate limiter) ---
+// --- Auth & Profile Routes ---
 router.post('/auth/login', authLimiter, (0, auth_1.validateBody)(validation_schemas_1.LoginSchema), auth_controller_1.AuthController.login);
 router.post('/auth/register', authLimiter, (0, auth_1.validateBody)(validation_schemas_1.RegisterSchema), auth_controller_1.AuthController.register);
 router.post('/auth/demo-login', authLimiter, (0, auth_1.validateBody)(validation_schemas_1.DemoLoginSchema), auth_controller_1.AuthController.demoLogin);
 router.get('/auth/me', auth_1.authMiddleware, auth_controller_1.AuthController.me);
+router.get('/auth/profile', auth_1.authMiddleware, auth_controller_1.AuthController.getProfile);
+router.put('/auth/profile', auth_1.authMiddleware, (0, auth_1.validateBody)(validation_schemas_1.UpdateProfileSchema), auth_controller_1.AuthController.updateProfile);
+router.post('/auth/change-password', auth_1.authMiddleware, (0, auth_1.validateBody)(validation_schemas_1.ChangePasswordSchema), auth_controller_1.AuthController.changePassword);
 // --- Vehicles & Categories (lecture publique, écriture admin) ---
 router.get('/categories', vehicle_controller_1.VehicleController.getCategories);
 router.get('/vehicles', vehicle_controller_1.VehicleController.getVehicles);
@@ -53,6 +56,8 @@ router.get('/reservations/:id', auth_1.authMiddleware, reservation_controller_1.
 // --- Payments ---
 router.post('/payments', auth_1.authMiddleware, (0, auth_1.validateBody)(validation_schemas_1.InitiatePaymentSchema), payment_controller_1.PaymentController.initiatePayment);
 router.get('/payments/:reference', auth_1.authMiddleware, payment_controller_1.PaymentController.getPaymentByReference);
+router.get('/payments/:reference/receipt', payment_controller_1.PaymentController.getPaymentReceipt);
+router.post('/payments/webhook', (0, auth_1.validateBody)(validation_schemas_1.WebhookPaymentSchema), payment_controller_1.PaymentController.handleWebhook);
 // --- Contracts ---
 router.get('/contracts/:reservationId', auth_1.authMiddleware, contract_controller_1.ContractController.getContractDetails);
 // --- Admin Endpoints (TOUS protégés par JWT + rôle ADMIN) ---

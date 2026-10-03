@@ -123,3 +123,32 @@ export const CreateInspectionSchema = z.object({
   photos: z.string().optional(),
   inspectorNotes: z.string().optional().or(z.string().max(5000)),
 });
+
+export const UpdateProfileSchema = z.object({
+  name: z.string().min(2, 'Le nom doit contenir au moins 2 caractères').max(255).optional(),
+  phone: z.string().min(6, 'Numéro de téléphone invalide').max(50).optional(),
+  address: z.string().max(500).optional(),
+  city: z.string().max(255).optional(),
+  country: z.string().max(255).optional(),
+  licenseNumber: z.string().min(3).max(100).optional(),
+  licenseExpiry: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date d’expiration invalide (YYYY-MM-DD)').optional(),
+  licenseCountry: z.string().max(100).optional(),
+  licensePhotoUrl: z.string().max(5000000).optional(), // supporte base64 ou URL
+});
+
+export const ChangePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Le mot de passe actuel est requis'),
+  newPassword: z.string().min(8, 'Le nouveau mot de passe doit contenir au moins 8 caractères')
+    .regex(/[A-Z]/, 'Le mot de passe doit contenir au moins une lettre majuscule')
+    .regex(/[0-9]/, 'Le mot de passe doit contenir au moins un chiffre'),
+});
+
+export const WebhookPaymentSchema = z.object({
+  event: z.string(),
+  reference: z.string(),
+  status: z.enum(['SUCCESS', 'FAILED', 'PENDING']),
+  amount: z.number().optional(),
+  method: z.string().optional(),
+  signature: z.string().optional(),
+});
+
