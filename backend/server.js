@@ -20,11 +20,17 @@ const fs = require('fs');
 
 dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
-const BUILD_PATH = path.join(__dirname, 'dist', 'server.js');
+const CANDIDATE_BUILDS = [
+  path.join(__dirname, 'dist', 'server.js'),
+  path.join(__dirname, '..', 'deploy-package', 'dist', 'server.js'),
+  path.join(__dirname, '..', 'dist', 'server.js'),
+  path.join(__dirname, '..', 'backend', 'dist', 'server.js'),
+];
 let app = null;
+const foundBuild = CANDIDATE_BUILDS.find(p => fs.existsSync(p));
 
-if (fs.existsSync(BUILD_PATH)) {
-  const built = require('./dist/server.js');
+if (foundBuild) {
+  const built = require(foundBuild);
   app = (built && built.default) ? built.default : built;
 } else {
   console.warn('============================================================');
