@@ -66,8 +66,19 @@ export function useAuth() {
     window.dispatchEvent(new Event('auth_changed'));
   };
 
+  const setUserSession = (newUser: UserSession | null) => {
+    if (newUser) {
+      localStorage.setItem(USER_KEY, JSON.stringify(newUser));
+    } else {
+      localStorage.removeItem(USER_KEY);
+    }
+    setUser(newUser);
+    window.dispatchEvent(new Event('auth_changed'));
+  };
+
   return {
     user,
+    setUser: setUserSession,
     token,
     isAdmin: user?.role === 'ADMIN',
     isAuthenticated: !!user,
@@ -77,3 +88,5 @@ export function useAuth() {
     logout,
   };
 }
+
+export const useAuthStore = useAuth;
