@@ -52,9 +52,24 @@ function main() {
   console.log(`📋 Schéma Prisma : ${schemaPath}`);
   console.log(`🔧 NODE_ENV = ${process.env.NODE_ENV || 'non défini (défaut: development)'}`);
 
+  // Détection PostgreSQL / Supabase
+  const isPostgres = process.env.DATABASE_URL && (process.env.DATABASE_URL.startsWith('postgres://') || process.env.DATABASE_URL.startsWith('postgresql://'));
+  if (isPostgres) {
+    console.log('🐘 Détection base de données PostgreSQL / Supabase !');
+    const pgSchemaSrc = path.join(backendDir, 'src', 'prisma', 'schema.postgresql.prisma');
+    if (fs.existsSync(pgSchemaSrc)) {
+      const activeSchema = path.join(backendDir, 'src', 'prisma', 'schema.prisma');
+      const distSchema = path.join(backendDir, 'dist', 'prisma', 'schema.prisma');
+      fs.copyFileSync(pgSchemaSrc, activeSchema);
+      if (fs.existsSync(path.dirname(distSchema))) fs.copyFileSync(pgSchemaSrc, distSchema);
+      console.log('✅ Schéma PostgreSQL activé pour Prisma.');
+    }
+  }
+
   // Étape 1 : Prisma Generate
   console.log('\n--- Étape 1/3 : Génération Prisma Client ---');
   run(`npx prisma generate --schema=${schemaPath}`, backendDir);
+
 
   // Étape 2 : Prisma DB Push
   console.log('\n--- Étape 2/3 : Application schéma BDD (db push) ---');
