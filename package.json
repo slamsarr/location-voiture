@@ -4,6 +4,10 @@
   "private": true,
   "description": "Plateforme digitale de location de véhicules - Hertz Digital Rental Platform",
   "main": "server.js",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
   "engines": {
     "node": ">=18.0.0"
   },
@@ -16,13 +20,15 @@
     "prebuild": "npm run install:backend && npm run install:frontend",
     "prisma:generate": "cd backend && npx prisma generate --schema=src/prisma/schema.prisma || echo 'prisma generate skipped'",
     "prisma:push": "cd backend && npx prisma db push --schema=src/prisma/schema.prisma --skip-generate || echo 'prisma push skipped'",
-    "build:frontend": "cd frontend && npx vite build",
-    "build:backend": "cd backend && (npx prisma generate --schema=src/prisma/schema.prisma; npx tsc) && node -e \"const fs=require('fs');const p=require('path');const src=p.join('backend','src','prisma','schema.prisma');const dst=p.join('backend','dist','prisma');fs.mkdirSync(dst,{recursive:true});fs.copyFileSync(src,p.join(dst,'schema.prisma'));console.log('Copied schema.prisma -> dist/prisma')\"",
-    "build:copy-frontend": "node scripts/copy-frontend.js || (node -e \"const fs=require('fs');const p=require('path');const src=p.resolve('frontend','dist');const dst=p.resolve('backend','dist','public');if(fs.existsSync(src)&&!fs.existsSync(p.join(dst,'index.html'))){function cp(s,d){fs.statSync(s).isDirectory()?(fs.mkdirSync(d,{recursive:true}),fs.readdirSync(s).forEach(f=>cp(p.join(s,f),p.join(d,f)))):fs.copyFileSync(s,d)};cp(src,dst);console.log('Copied frontend -> backend/dist/public (fallback)')}\")",
-    "build": "npm run prisma:generate 2>&1; npm run build:frontend && npm run build:backend && npm run build:copy-frontend",
-    "build:hostinger": "npm run install:all && npm run build",
+    "build:frontend": "node -e \"const fs=require('fs'),p=require('path');if(fs.existsSync(p.join('backend','dist','public','index.html'))){console.log('✅ Build frontend déjà présent dans dist/public');process.exit(0);}process.exit(1);\" || (cd frontend && npx vite build)",
+    "build:backend": "node -e \"const fs=require('fs'),p=require('path');if(fs.existsSync(p.join('backend','dist','server.js'))){console.log('✅ Build backend déjà présent dans dist/server.js');process.exit(0);}process.exit(1);\" || (cd backend && npx prisma generate --schema=src/prisma/schema.prisma && npx tsc)",
+    "build:copy-frontend": "node scripts/copy-frontend.js",
+    "build": "npm run prisma:generate && npm run build:frontend && npm run build:backend && npm run build:copy-frontend",
+    "build:hostinger": "npm run build",
     "build:windows": "npm.cmd run build:frontend && npm.cmd run build:backend && node scripts/copy-frontend.js",
-    "postbuild": "echo '[postbuild] Vérification dist/server.js & dist/public:' && (ls -la backend/dist/server.js 2>/dev/null || dir backend\\\\dist\\\\server.js) && (ls -la backend/dist/public/index.html 2>/dev/null || dir backend\\\\dist\\\\public\\\\index.html)",
+
+    "postbuild": "node -e \"const fs=require('fs');console.log('✅ Vérification dist/server.js:', fs.existsSync('backend/dist/server.js') ? 'OK' : 'MANQUANT');console.log('✅ Vérification dist/public:', fs.existsSync('backend/dist/public/index.html') ? 'OK' : 'MANQUANT');\"",
+
     "prisma:push-manual": "cd backend && npx prisma db push --schema=src/prisma/schema.prisma",
     "db:seed": "node scripts/run-seed.js || echo 'Seed ignore - OK'",
     "deploy:setup": "node scripts/hostinger-postdeploy.js",

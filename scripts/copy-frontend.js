@@ -6,9 +6,14 @@ const src = path.resolve(root, 'frontend', 'dist');
 const dest = path.resolve(root, 'backend', 'dist', 'public');
 
 if (!fs.existsSync(src)) {
-  console.warn('⚠️  frontend/dist introuvable — build frontend d\'abord.');
+  if (fs.existsSync(path.join(dest, 'index.html'))) {
+    console.log('✅ Frontend déjà présent dans backend/dist/public');
+  } else {
+    console.warn('⚠️  frontend/dist introuvable — build frontend d\'abord.');
+  }
   process.exit(0);
 }
+
 
 if (fs.existsSync(dest)) {
   fs.rmSync(dest, { recursive: true, force: true });
